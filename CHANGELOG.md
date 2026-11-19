@@ -1,0 +1,10 @@
+# Changelog
+
+## v1.0.0 — 2026-11-19
+- First release: Key Signature Trainer for Raven Band.
+- Four modes: Key Signature Notes, Accidentals, Put It Together, Find Them All.
+- Every instrument sees its own written key (B♭, E♭, F horn transpositions); treble and bass clef.
+- Beginner concert keys: B♭, E♭, F, A♭, C (choose in Settings).
+- Wrong answers explain why (key signature in every octave, accidental carries to the barline, natural cancels, barline resets, courtesy accidentals).
+- Class display for the viewboard: bigger staff and buttons, Reveal button (R), "Rotate through all instruments".
+- Light/dark theme; keyboard shortcuts (A–G, 1 ♭ / 2 ♮ / 3 ♯, Enter, Esc).

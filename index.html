@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%237c3aed%22/%3E%3Ctext x=%2216%22 y=%2224%22 font-size=%2222%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22%3E%E2%99%AF%3C/text%3E%3C/svg%3E">
+<title>Key Signature Trainer · Raven Band</title>
+<style>
+:root{
+  --bg:#121218; --panel:#1c1c26; --panel2:#262633; --text:#ececf3; --muted:#a3a3b8; --line:#34344a;
+  --accent:#8b5cf6; --accent-ink:#fff;
+  --paper:#fbf8f1; --ink:#1b1b22;
+  --cur:#7c3aed; --right:#15803d; --wrong:#dc2626; --src:#2563eb; --miss:#d97706;
+}
+body.light{
+  --bg:#f3f2f7; --panel:#ffffff; --panel2:#ececf3; --text:#1b1b22; --muted:#5b5b70; --line:#d6d6e2;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+header{display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border-bottom:1px solid var(--line);background:var(--panel)}
+header .brand{font-weight:700;letter-spacing:.02em}
+header .brand small{display:block;font-weight:500;color:var(--muted);font-size:.78rem;letter-spacing:0}
+header .sp{flex:1}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:.4rem .7rem}
+main{max-width:1100px;margin:0 auto;padding:1rem}
+[hidden]{display:none!important}
+
+/* Home */
+.field{display:flex;flex-direction:column;gap:.35rem;margin-bottom:1rem}
+.field label,.sect{font-weight:600;color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.06em}
+select{font:inherit;font-size:1.1rem;padding:.6rem .7rem;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text);max-width:420px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.8rem;margin:.4rem 0 1.4rem}
+.mode{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:1rem;text-align:left;display:flex;flex-direction:column;gap:.3rem;transition:transform .08s,border-color .15s}
+.mode:hover{border-color:var(--accent);transform:translateY(-1px)}
+.mode .num{font-size:.8rem;font-weight:700;color:var(--accent)}
+.mode .t{font-size:1.15rem;font-weight:700}
+.mode .d{color:var(--muted);font-size:.92rem}
+details{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:.8rem 1rem}
+summary{cursor:pointer;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:.35rem .8rem}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.row{display:flex;flex-wrap:wrap;gap:1.2rem;margin-top:.8rem}
+.note-small{color:var(--muted);font-size:.85rem;margin-top:.8rem}
+
+/* Play */
+.topbar{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+.topbar .title{font-weight:700;font-size:1.1rem}
+.topbar .rule{color:var(--muted)}
+.stats{margin-left:auto;display:flex;gap:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--text)}
+.ctx{font-weight:600;margin:.2rem 0 .4rem;color:var(--muted)}
+.paper{background:var(--paper);color:var(--ink);border-radius:16px;padding:.6rem;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.paper svg{display:block;width:100%;height:auto;max-height:46vh;margin:0 auto;touch-action:manipulation}
+.feedback{min-height:3.4rem;margin:.7rem 0;padding:.6rem .9rem;border-radius:12px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;gap:.8rem}
+.feedback.right{border-color:var(--right)}
+.feedback.wrong{border-color:var(--wrong)}
+.feedback .msg{flex:1}
+.feedback .big{font-weight:800;font-size:1.25rem}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:.6rem 1.1rem;font-weight:700}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.pad{display:flex;flex-direction:column;gap:.55rem;align-items:center}
+.pad .letters,.pad .accs{display:grid;gap:.5rem;width:100%;max-width:760px}
+.pad .letters{grid-template-columns:repeat(7,1fr)}
+.pad .accs{grid-template-columns:repeat(3,1fr);max-width:520px}
+.key{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:.75rem 0;font-size:1.5rem;font-weight:800;min-height:3.4rem}
+.key small{display:block;font-size:.72rem;font-weight:600;color:var(--muted)}
+.key.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 22%,var(--panel))}
+.key:active{transform:scale(.97)}
+.padhint{color:var(--muted);font-size:.85rem}
+.actions{display:flex;gap:.6rem;justify-content:center;margin-top:.3rem}
+
+/* staff colors */
+.staff .ink{color:var(--ink)}
+.staff .hl{color:var(--src)}
+.staff .cur{color:var(--cur)}
+.staff .right{color:var(--right)}
+.staff .wrong{color:var(--wrong)}
+.staff .src{color:var(--src)}
+.staff .miss{color:var(--miss)}
+.staff .shown{color:var(--src)}
+.staff text{font-family:system-ui,sans-serif;font-weight:700}
+.tap{fill:transparent;cursor:pointer}
+
+/* Class display (viewboard) */
+body.classmode main{max-width:1500px}
+body.classmode .paper svg{max-height:56vh}
+body.classmode .key{font-size:2rem;min-height:4.4rem}
+body.classmode .feedback{font-size:1.3rem}
+body.classmode .feedback .big{font-size:1.7rem}
+body.classmode .topbar .title{font-size:1.4rem}
+body.classmode .ctx{font-size:1.25rem}
+.classonly{display:none}
+body.classmode .classonly{display:inline-block}
+@media (max-width:560px){.key{font-size:1.2rem;padding:.55rem 0}.pad .letters{gap:.3rem}.stats{margin-left:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Key Signature Trainer<small>Raven Band · STEM Academy @ Bartlett</small></div>
+  <div class="sp"></div>
+  <button class="iconbtn" id="homeBtn" hidden>← Modes</button>
+  <button class="iconbtn" id="themeBtn" title="Toggle light/dark">☀ / ☾</button>
+</header>
+
+<main id="home">
+  <div class="field">
+    <label for="instSel">Your instrument</label>
+    <select id="instSel"></select>
+  </div>
+  <div class="sect">Pick a mode</div>
+  <div class="modes" id="modes"></div>
+  <details id="settings">
+    <summary>Settings</summary>
+    <div class="row">
+      <div>
+        <div class="sect">Concert keys</div>
+        <div class="chips" id="keyChips"></div>
+      </div>
+      <div>
+        <div class="sect">Note range</div>
+        <select id="rangeSel">
+          <option value="staff">On the staff only</option>
+          <option value="ledger1">Staff + 1 ledger line</option>
+          <option value="ledger2">Staff + 2 ledger lines</option>
+        </select>
+      </div>
+      <div>
+        <div class="sect">Display</div>
+        <div class="chips"><button class="chip" id="classChip">Class display (viewboard)</button></div>
+      </div>
+    </div>
+    <div class="note-small">Settings are saved on this device only. Transposing instruments see their own written key (e.g. concert B♭ shows clarinets 0 sharps/flats, alto saxes 1 sharp).</div>
+  </details>
+  <div class="note-small" id="ver"></div>
+</main>
+
+<main id="play" hidden>
+  <div class="topbar">
+    <div><div class="title" id="pTitle"></div><div class="rule" id="pRule"></div></div>
+    <div class="stats"><span>Correct <b id="sRight">0</b>/<b id="sTotal">0</b></span><span>Streak <b id="sStreak">0</b></span><span>Best <b id="sBest">0</b></span></div>
+  </div>
+  <div class="ctx" id="ctx"></div>
+  <div class="paper"><svg class="staff" id="staff" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div class="feedback" id="fb"><div class="msg" id="fbMsg"></div><button class="btn" id="contBtn" hidden>Continue ⏎</button></div>
+  <div class="pad" id="pad">
+    <div class="letters" id="letters"></div>
+    <div class="accs" id="accs"></div>
+    <div class="padhint" id="padHint">Pick the letter and its sharp, flat, or natural (either order).</div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="checkBtn" hidden>Check ⏎</button>
+    <button class="btn ghost classonly" id="revealBtn">Reveal (R)</button>
+  </div>
+</main>
+
+<script src="glyphs.js"></script>
+<script>
+'use strict';
+const VERSION = '1.0.0';
+const LETTERS = ['C','D','E','F','G','A','B'];
+const SYM = {'1':'♯','-1':'♭','0':'♮'};
+const WORD = {'1':'sharp','-1':'flat','0':'natural'};
+const letterOf = s => LETTERS[((s % 7) + 7) % 7];
+const rand = n => Math.floor(Math.random() * n);
+const randInt = (a, b) => a + rand(b - a + 1);
+const pick = arr => arr[rand(arr.length)];
+const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(i + 1); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+
+// t = how many fifths the written key sits above concert (B♭ instr +2, E♭ +3, F horn +1)
+const INSTRUMENTS = [
+  {id:'flute', name:'Flute', clef:'treble', t:0},
+  {id:'oboe', name:'Oboe', clef:'treble', t:0},
+  {id:'bassoon', name:'Bassoon', clef:'bass', t:0},
+  {id:'clarinet', name:'Clarinet', clef:'treble', t:2},
+  {id:'bassclar', name:'Bass Clarinet', clef:'treble', t:2},
+  {id:'altosax', name:'Alto Sax', clef:'treble', t:3},
+  {id:'tenorsax', name:'Tenor Sax', clef:'treble', t:2},
+  {id:'barisax', name:'Bari Sax', clef:'treble', t:3},
+  {id:'trumpet', name:'Trumpet', clef:'treble', t:2},
+  {id:'horn', name:'French Horn', clef:'treble', t:1},
+  {id:'trombone', name:'Trombone', clef:'bass', t:0},
+  {id:'euph', name:'Baritone / Euphonium (bass clef)', clef:'bass', t:0},
+  {id:'euphtc', name:'Baritone T.C. (treble clef)', clef:'treble', t:2},
+  {id:'tuba', name:'Tuba', clef:'bass', t:0},
+  {id:'mallets', name:'Mallets / Bells', clef:'treble', t:0},
+];
+const ROTATE = {id:'rotate', name:'Rotate through all instruments (class)'};
+const CONCERT_KEYS = [
+  {id:'Bb', name:'B♭', f:-2}, {id:'Eb', name:'E♭', f:-3}, {id:'F', name:'F', f:-1},
+  {id:'Ab', name:'A♭', f:-4}, {id:'C', name:'C', f:0},
+];
+const RANGES = {staff:[0,8], ledger1:[-2,10], ledger2:[-4,12]};
+const BASE = {treble:30, bass:18};          // diatonic step of the bottom staff line (E4 / G2)
+const KS_TREBLE = {sharp:[38,35,39,36,33,37,34], flat:[34,37,33,36,32,35,31]};
+const MODES = [
+  {n:1, title:'Key Signature Notes', rule:'The key signature counts for every octave.', d:'Name one note at a time. Watch for notes in a different octave than the sharp or flat in the key signature.'},
+  {n:2, title:'Accidentals', rule:'Accidentals last until the barline.', d:'Walk through two measures note by note. No key signature, just accidentals.'},
+  {n:3, title:'Put It Together', rule:'Key signature + accidentals + barlines.', d:'Your key signature with accidentals, naturals, and barline resets mixed in.'},
+  {n:4, title:'Find Them All', rule:'Tap every note the key signature changes.', d:'Find every note that the key signature makes sharp or flat, in every octave.'},
+];
+
+function keyMap(f){
+  const m = {C:0,D:0,E:0,F:0,G:0,A:0,B:0};
+  if (f > 0) for (let i = 0; i < f; i++) m['FCGDAEB'[i]] = 1;
+  else for (let i = 0; i < -f; i++) m['BEADGCF'[i]] = -1;
+  return m;
+}
+function keySigGlyphs(clef, f){
+  const off = clef === 'bass' ? -14 : 0, out = [];
+  if (f > 0) for (let i = 0; i < f; i++) out.push({letter:'FCGDAEB'[i], acc:1, step:KS_TREBLE.sharp[i] + off});
+  else for (let i = 0; i < -f; i++) out.push({letter:'BEADGCF'[i], acc:-1, step:KS_TREBLE.flat[i] + off});
+  return out;
+}
+function chooseAcc(L, km){
+  if (km[L] !== 0) return 0;                       // cancel the key signature
+  if ('CFG'.includes(L)) return 1;
+  if ('EAB'.includes(L)) return -1;
+  return pick([1,-1]);                            // D
+}
+function nameOf(L, v){ return v === 0 ? L : L + SYM[v]; }
+function spoken(L, v){ return v === 0 ? L : `${L} ${WORD[v]}`; }
+function describePos(pos){
+  if (pos < 0) return 'below the staff';
+  if (pos > 8) return 'above the staff';
+  if (pos % 2 === 0) return 'the ' + ['bottom line','2nd line','middle line','4th line','top line'][pos/2];
+  return 'the ' + ['bottom space','2nd space','3rd space','top space'][(pos-1)/2];
+}
+
+// ---------- settings (per device) ----------
+const DEFAULTS = {inst:'clarinet', keys:CONCERT_KEYS.map(k=>k.id), range:'ledger1', theme:'dark', classMode:false, best:{}};
+let S = Object.assign({}, DEFAULTS);
+try { Object.assign(S, JSON.parse(localStorage.getItem('ksTrainer.settings') || '{}')); } catch (e) {}
+function save(){ try { localStorage.setItem('ksTrainer.settings', JSON.stringify(S)); } catch (e) {} }
+
+// ---------- generation ----------
+function rangeSteps(clef){
+  const [lo, hi] = RANGES[S.range] || RANGES.ledger1, out = [];
+  for (let p = lo; p <= hi; p++) out.push(BASE[clef] + p);
+  return out;
+}
+
+// Works out each note's real pitch under the standard rule: an accidental affects the same
+// line/space until the barline. Any same-letter note in another octave that the rule could
+// confuse gets a printed courtesy accidental, so the answer never depends on the octave rule.
+function evaluate(notes, km){
+  let state = {}, prev = {}, m = null;
+  notes.forEach((n, i) => {
+    if (n.m !== m) { prev = state; state = {}; m = n.m; }
+    const L = letterOf(n.step);
+    n.src = null;
+    if (n.acc != null) { n.val = n.acc; n.reason = n.courtesy ? 'courtesy' : 'explicit'; state[n.step] = {val:n.acc, src:i}; return; }
+    if (state[n.step]) { n.val = state[n.step].val; n.reason = 'carry'; n.src = state[n.step].src; return; }
+    const cross = Object.entries(state).find(([s, v]) => letterOf(+s) === L && v.val !== km[L]);
+    if (cross) { n.acc = km[L]; n.courtesy = true; n.val = km[L]; n.reason = 'courtesy'; n.src = cross[1].src; state[n.step] = {val:n.val, src:i}; return; }
+    n.val = km[L];
+    if (prev[n.step] && prev[n.step].val !== km[L]) { n.reason = 'reset'; n.src = prev[n.step].src; }
+    else n.reason = km[L] !== 0 ? 'keysig' : 'plain';
+  });
+}
+
+function pickAffectedStep(L, steps, clef, f, displacedChance){
+  const cands = steps.filter(s => letterOf(s) === L);
+  const g = keySigGlyphs(clef, f).find(g => g.letter === L);
+  const displaced = g ? cands.filter(s => s !== g.step) : cands;
+  if (displaced.length && Math.random() < displacedChance) return pick(displaced);
+  return pick(cands);
+}
+
+function genSingle(ctx, prevStep){
+  const steps = rangeSteps(ctx.clef), km = keyMap(ctx.f);
+  const affected = LETTERS.filter(L => km[L] !== 0);
+  for (let tries = 0; tries < 20; tries++) {
+    let s;
+    if (affected.length && Math.random() < 0.65) s = pickAffectedStep(pick(affected), steps, ctx.clef, ctx.f, 0.7);
+    else s = pick(steps);
+    if (s !== prevStep) return [{step:s, m:0}];
+  }
+  return [{step:pick(steps), m:0}];
+}
+
+function genLine(ctx, useKS){
+  const steps = rangeSteps(ctx.clef);
+  const km = useKS ? keyMap(ctx.f) : keyMap(0);
+  const affected = LETTERS.filter(L => km[L] !== 0);
+  const ofLetter = L => steps.filter(s => letterOf(s) === L);
+  const M = [[null,null,null,null],[null,null,null,null]];
+  const used = [new Set(), new Set()];
+
+  // Pair 1: accidental, then the same note later in the measure (carry-through)
+  const L1 = (useKS && affected.length && Math.random() < 0.5) ? pick(affected) : pick(LETTERS.filter(L => km[L] === 0));
+  const T = pick(ofLetter(L1)), a1 = chooseAcc(L1, km);
+  const i = randInt(0, 1), j = randInt(i + 1, 3);
+  M[0][i] = {step:T, acc:a1}; M[0][j] = {step:T};
+  used[0].add(L1); used[1].add(L1);
+  // Sometimes a same-letter note in another octave (gets a courtesy accidental)
+  if (Math.random() < 0.3) {
+    const others = ofLetter(L1).filter(s => s !== T);
+    const free = [0,1,2,3].filter(k => k > j && !M[0][k]);   // after the carry note, so no later note can be misread
+    if (others.length && free.length) M[0][pick(free)] = {step:pick(others)};
+  }
+  // Measure 2: the same note again (barline reset)
+  if (Math.random() < 0.75) M[1][randInt(0, 3)] = {step:T};
+  // Measure 2: maybe a second accidental pair
+  if (Math.random() < 0.6) {
+    const opts = LETTERS.filter(L => L !== L1);
+    const L2 = (useKS && Math.random() < 0.5 && affected.some(L => L !== L1)) ? pick(affected.filter(L => L !== L1)) : pick(opts);
+    const free = [0,1,2,3].filter(k => !M[1][k]);
+    if (free.length >= 2) {
+      const T2 = pick(ofLetter(L2)), a2 = chooseAcc(L2, km);
+      const p = free[randInt(0, free.length - 2)];
+      const q = pick(free.filter(k => k > p));
+      M[1][p] = {step:T2, acc:a2}; M[1][q] = {step:T2};
+      used[1].add(L2);
+    }
+  }
+  // Fillers
+  for (let m = 0; m < 2; m++) {
+    for (let k = 0; k < 4; k++) {
+      if (M[m][k]) continue;
+      let s, tries = 0;
+      do {
+        const okLetters = LETTERS.filter(L => !used[m].has(L));
+        const okAff = affected.filter(L => !used[m].has(L));
+        if (useKS && okAff.length && Math.random() < 0.5) s = pickAffectedStep(pick(okAff), steps, ctx.clef, ctx.f, 0.7);
+        else s = pick(steps.filter(x => okLetters.includes(letterOf(x))));
+        tries++;
+      } while (tries < 10 && ((M[m][k-1] && M[m][k-1].step === s) || (M[m][k+1] && M[m][k+1].step === s)));
+      M[m][k] = {step:s};
+    }
+  }
+  const notes = [...M[0].map(n => ({...n, m:0})), ...M[1].map(n => ({...n, m:1}))];
+  evaluate(notes, km);
+  return notes;
+}
+
+function genFind(ctx){
+  const steps = rangeSteps(ctx.clef), km = keyMap(ctx.f);
+  const affected = LETTERS.filter(L => km[L] !== 0);
+  const plain = LETTERS.filter(L => km[L] === 0);
+  const nAff = randInt(3, 5), notes = [];
+  // Letters that can appear in a different octave than their key-signature symbol (within the range)
+  const glyphs = keySigGlyphs(ctx.clef, ctx.f);
+  const movable = affected.filter(L => steps.some(s => letterOf(s) === L && s !== glyphs.find(g => g.letter === L).step));
+  const order = shuffle([...affected]);
+  for (let k = 0; k < nAff; k++) {
+    const L = k < 2 && movable.length ? pick(movable) : order[k % order.length];
+    notes.push({step:pickAffectedStep(L, steps, ctx.clef, ctx.f, k < 2 ? 1 : 0.6), m:0});
+  }
+  while (notes.length < 8) notes.push({step:pick(steps.filter(s => plain.includes(letterOf(s)))), m:0});
+  for (let t = 0; t < 30; t++) { shuffle(notes); if (notes.every((n, k) => k === 0 || n.step !== notes[k-1].step)) break; }
+  evaluate(notes, km);
+  return notes;
+}
+
+// ---------- game state ----------
+let G = null, sel = {L:null, a:null}, locked = false, timer = null;
+const stats = {right:0, total:0, streak:0};
+
+function pickContext(requireKS){
+  const inst = S.inst === 'rotate' ? pick(INSTRUMENTS) : (INSTRUMENTS.find(i => i.id === S.inst) || INSTRUMENTS[3]);
+  let keys = CONCERT_KEYS.filter(k => S.keys.includes(k.id));
+  if (!keys.length) keys = CONCERT_KEYS;
+  let opts = keys.map(k => ({concert:k, f:k.f + inst.t}));
+  if (requireKS) {
+    let nz = opts.filter(o => o.f !== 0);
+    // e.g. only concert B♭ selected for a clarinet = no key signature; borrow another beginner key
+    if (!nz.length) nz = CONCERT_KEYS.map(k => ({concert:k, f:k.f + inst.t})).filter(o => o.f !== 0);
+    opts = nz;
+  }
+  if (G && G.ctx && opts.length > 1 && S.inst !== 'rotate') { const diff = opts.filter(o => o.f !== G.ctx.f); if (diff.length) opts = diff; }
+  const o = pick(opts);
+  return {inst, clef:inst.clef, f:o.f, concert:o.concert};
+}
+
+function startMode(n){
+  stats.right = 0; stats.total = 0; stats.streak = 0;
+  G = {mode:n, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false};
+  const md = MODES[n-1];
+  $('pTitle').textContent = `${md.n}. ${md.title}`;
+  $('pRule').textContent = md.rule;
+  $('home').hidden = true; $('play').hidden = false; $('homeBtn').hidden = false;
+  $('pad').hidden = n === 4; $('checkBtn').hidden = n !== 4;
+  newRound(true);
+}
+
+function newRound(newCtx){
+  clearTimeout(timer); locked = false; sel = {L:null, a:null};
+  const m = G.mode;
+  if (newCtx || !G.ctx || m !== 1 || G.qInCtx >= 4) { G.ctx = pickContext(m === 1 || m === 4); G.qInCtx = 0; }
+  G.ks = m !== 2;
+  const prevStep = G.notes[0] && G.notes[0].step;
+  G.notes = m === 1 ? genSingle(G.ctx, prevStep) : m === 4 ? genFind(G.ctx) : genLine(G.ctx, true && m === 3);
+  if (m === 1) evaluate(G.notes, keyMap(G.ctx.f));
+  G.cur = 0; G.hlLetter = null; G.picked = new Set(); G.checked = false; G.lineDone = false;
+  const c = G.ctx;
+  $('ctx').textContent = m === 2 ? `${c.inst.name}` : `${c.inst.name} · concert ${c.concert.name}`;
+  setFb('', m === 4 ? 'Tap the notes, then press Check.' : m === 1 ? 'What note is this?' : 'Name the highlighted note.');
+  $('contBtn').hidden = true;
+  updatePad(); render(); updateStats();
+}
+
+function km(){ return G.mode === 2 ? keyMap(0) : keyMap(G.ctx.f); }
+
+function reasonText(n){
+  const L = letterOf(n.step), v = n.val, K = km(), name = nameOf(L, v);
+  const src = n.src != null ? G.notes[n.src] : null;
+  switch (n.reason) {
+    case 'keysig': {
+      const g = keySigGlyphs(G.ctx.clef, G.ctx.f).find(g => g.letter === L);
+      if (g && g.step === n.step) return `<span class="big">${name}</span> The key signature has a ${SYM[v]} on ${L}, so this ${L} is ${spoken(L, v)}.`;
+      return `<span class="big">${name}</span> The key signature's ${SYM[v]} is drawn on ${describePos(g.step - BASE[G.ctx.clef])}, but it counts for <b>every ${L}, in every octave</b>, including this one.`;
+    }
+    case 'plain':
+      return G.mode === 2
+        ? `<span class="big">${L}</span> No accidental on this note or earlier in the measure, so it's a plain ${L}.`
+        : `<span class="big">${L}</span> The key signature has no sharp or flat for ${L} and there's no accidental, so it's a plain ${L}.`;
+    case 'explicit':
+      if (v === 0) return `<span class="big">${L}♮</span> The natural sign cancels the key signature's ${SYM[K[L]]}. This ${L} is ${L} natural.`;
+      return `<span class="big">${name}</span> The ${SYM[v]} is written right in front of this note.`;
+    case 'carry':
+      if (v === 0 && K[L] !== 0) return `<span class="big">${L}♮</span> The natural sign earlier in this measure still counts. It cancels the key signature's ${SYM[K[L]]} <b>until the barline</b>.`;
+      return `<span class="big">${name}</span> The ${SYM[src.acc]} earlier in this measure still counts. <b>Accidentals last until the barline.</b>`;
+    case 'reset':
+      return `<span class="big">${name}</span> The barline erased the ${SYM[src.val]} from the last measure, so this is back to ${K[L] !== 0 ? 'the key signature: ' + spoken(L, v) : 'a plain ' + L}.`;
+    case 'courtesy':
+      return `<span class="big">${name}</span> The accidental in parentheses is a <b>reminder</b> (courtesy accidental). This ${L} is in a different octave from the one with the ${SYM[src.val]}, so it goes by the key signature.`;
+  }
+  return name;
+}
+
+function setFb(cls, html){ const f = $('fb'); f.className = 'feedback ' + cls; $('fbMsg').innerHTML = html; }
+function updateStats(){
+  $('sRight').textContent = stats.right; $('sTotal').textContent = stats.total; $('sStreak').textContent = stats.streak;
+  $('sBest').textContent = (S.best && S.best[G ? G.mode : 1]) || 0;
+}
+
+function submit(L, a){
+  if (locked || !G || G.mode === 4) return;
+  const n = G.notes[G.cur]; if (!n) return;
+  const ok = letterOf(n.step) === L && n.val === a;
+  stats.total++;
+  n.result = ok ? 'right' : 'wrong'; n.given = nameOf(L, a);
+  if (ok) {
+    stats.right++; stats.streak++;
+    S.best = S.best || {}; if (stats.streak > (S.best[G.mode] || 0)) { S.best[G.mode] = stats.streak; save(); }
+    setFb('right', `<span class="big">✓ ${nameOf(L, a)}</span>${n.reason === 'keysig' && G.mode === 1 ? ' Nice. The key signature counts in every octave.' : ''}`);
+    locked = true; render(); updateStats();
+    timer = setTimeout(advance, G.mode === 1 ? 750 : 550);
+  } else {
+    stats.streak = 0;
+    showReason(n, `You said ${nameOf(L, a)}. `, 'wrong');
+  }
+}
+
+function showReason(n, prefix, cls){
+  locked = true;
+  if (n.reason === 'keysig') G.hlLetter = letterOf(n.step);
+  G.showSrc = n.src;
+  setFb(cls, (prefix ? `<span style="color:var(--muted)">${prefix}</span>` : '') + reasonText(n));
+  $('contBtn').hidden = false; $('contBtn').textContent = 'Continue ⏎';
+  render(); updateStats();
+}
+
+function reveal(){
+  if (!G) return;
+  if (G.mode === 4) { if (!G.checked) check(true); return; }
+  if (locked) return;
+  const n = G.notes[G.cur]; if (!n) return;
+  n.result = 'shown';
+  showReason(n, '', '');
+}
+
+function advance(){
+  clearTimeout(timer);
+  G.hlLetter = null; G.showSrc = null; $('contBtn').hidden = true; locked = false;
+  if (G.mode === 4) { newRound(false); return; }
+  if (G.mode === 1) { G.qInCtx++; newRound(false); return; }
+  if (G.lineDone) { newRound(false); return; }
+  G.cur++;
+  if (G.cur >= G.notes.length) {
+    G.lineDone = true; locked = true;
+    const r = G.notes.filter(n => n.result === 'right').length;
+    setFb(r === G.notes.length ? 'right' : '', `<span class="big">Line complete: ${r} of ${G.notes.length}</span>${r === G.notes.length ? ' Perfect line!' : ''}`);
+    $('contBtn').hidden = false; $('contBtn').textContent = 'Next line ⏎';
+    render(); return;
+  }
+  setFb('', 'Name the highlighted note.');
+  render();
+}
+
+function toggleFind(i){
+  if (!G || G.mode !== 4 || G.checked) return;
+  G.picked.has(i) ? G.picked.delete(i) : G.picked.add(i);
+  render();
+}
+function check(revealed){
+  if (G.checked) { advance(); return; }
+  G.checked = true;
+  const target = new Set(G.notes.map((n, i) => n.val !== 0 ? i : -1).filter(i => i >= 0));
+  const ok = !revealed && target.size === G.picked.size && [...target].every(i => G.picked.has(i));
+  const g = keySigGlyphs(G.ctx.clef, G.ctx.f);
+  const list = g.map(x => x.letter).join(', ');
+  const kind = g[0].acc > 0 ? 'sharps' : 'flats';
+  if (!revealed) {
+    stats.total++;
+    if (ok) { stats.right++; stats.streak++; S.best = S.best || {}; if (stats.streak > (S.best[4] || 0)) { S.best[4] = stats.streak; save(); } }
+    else stats.streak = 0;
+  }
+  G.findTarget = target;
+  const why = `The key signature ${kind} <b>${list}</b>, so every ${g.length > 1 ? 'one of those letters' : list} is changed, <b>in every octave</b>.`;
+  setFb(revealed ? '' : ok ? 'right' : 'wrong', (ok ? `<span class="big">✓ All found!</span> ` : revealed ? '' : `<span class="big">Not quite.</span> `) + why + (ok || revealed ? '' : ' <span style="color:var(--miss)">Orange = missed</span>, <span style="color:var(--wrong)">red = not changed</span>.'));
+  $('checkBtn').textContent = 'Next ⏎';
+  render(); updateStats();
+}
+
+// ---------- rendering ----------
+const SP = 20, K = SP / 250;
+function glyph(name, x, y, cls){
+  const g = window.GLYPHS[name];
+  return `<path class="${cls || ''}" fill="currentColor" d="${g.d}" transform="translate(${x.toFixed(2)} ${y.toFixed(2)}) scale(${K} ${-K})"/>`;
+}
+const gw = name => window.GLYPHS[name].w * K;
+
+function render(){
+  const clef = G.ctx.clef, base = BASE[clef], mode = G.mode;
+  const y0 = SP * 3.6, Y = p => y0 + (8 - p) * SP / 2;
+  let x = SP * 0.5, body = '', under = '';
+  body += `<g class="ink">${clef === 'treble' ? glyph('gClef', x, Y(2)) : glyph('fClef', x, Y(6))}</g>`;
+  x += gw(clef === 'treble' ? 'gClef' : 'fClef') + SP * 0.8;
+  if (G.ks) {
+    for (const g of keySigGlyphs(clef, G.ctx.f)) {
+      const hl = G.hlLetter === g.letter || (mode === 4 && G.checked);
+      body += `<g class="${hl ? 'hl' : 'ink'}">${glyph(g.acc > 0 ? 'sharp' : 'flat', x, Y(g.step - base))}</g>`;
+      x += (g.acc > 0 ? 1.1 : 1.0) * SP;
+    }
+  }
+  x += SP * 0.8;
+  const single = mode === 1, find = mode === 4;
+  const slotW = find ? SP * 3.3 : SP * 4.6, accRoom = find ? SP * 1.0 : SP * 2.4;
+  const nw = gw('notehead');
+  let measure = G.notes.length ? G.notes[0].m : 0;
+  const barXs = [];
+  G.notes.forEach((n, i) => {
+    if (n.m !== measure) { barXs.push(x + SP * 0.1); x += SP * 0.5; measure = n.m; }
+    const pos = n.step - base, nx = x + accRoom, cy = Y(pos);
+    let cls = 'ink';
+    if (find) {
+      if (G.checked) {
+        const tgt = G.findTarget.has(i), pk = G.picked.has(i);
+        cls = tgt && pk ? 'right' : tgt ? 'miss' : pk ? 'wrong' : 'ink';
+      } else if (G.picked.has(i)) cls = 'cur';
+    } else if (n.result) cls = n.result;
+    else if (i === G.cur && !single) cls = 'cur';
+    if (G.showSrc === i) cls = 'src';
+    // cursor / pick backgrounds
+    if (!find && !single && i === G.cur && !G.lineDone)
+      body += `<rect x="${x + SP*0.3}" y="${Y(14)}" width="${slotW - SP*0.3}" height="${Y(-7) - Y(14)}" rx="${SP*0.6}" fill="var(--cur)" opacity=".10"/>`;
+    if (find && (G.picked.has(i) || (G.checked && G.findTarget.has(i))))
+      body += `<rect x="${x + SP*0.2}" y="${Y(14)}" width="${slotW - SP*0.4}" height="${Y(-7) - Y(14)}" rx="${SP*0.6}" class="${cls}" fill="currentColor" opacity=".13"/>`;
+    if (G.showSrc === i)
+      body += `<rect x="${x + SP*0.3}" y="${Y(14)}" width="${slotW - SP*0.3}" height="${Y(-7) - Y(14)}" rx="${SP*0.6}" fill="var(--src)" opacity=".12"/>`;
+    let g = '';
+    // ledger lines
+    for (let p = -2; p >= pos; p -= 2) g += `<line x1="${nx - SP*0.4}" x2="${nx + nw + SP*0.4}" y1="${Y(p)}" y2="${Y(p)}" stroke="currentColor" stroke-width="${SP*0.13}"/>`;
+    for (let p = 10; p <= pos; p += 2) g += `<line x1="${nx - SP*0.4}" x2="${nx + nw + SP*0.4}" y1="${Y(p)}" y2="${Y(p)}" stroke="currentColor" stroke-width="${SP*0.13}"/>`;
+    // accidental (with parentheses if courtesy)
+    if (n.acc != null) {
+      const an = n.acc > 0 ? 'sharp' : n.acc < 0 ? 'flat' : 'natural';
+      let ax = nx - SP * 0.25;
+      if (n.courtesy) { ax -= gw('parenR'); g += glyph('parenR', ax, cy); ax -= SP * 0.05; }
+      ax -= gw(an); g += glyph(an, ax, cy);
+      if (n.courtesy) { ax -= gw('parenL') + SP * 0.05; g += glyph('parenL', ax, cy); }
+    }
+    g += glyph('notehead', nx, cy);
+    if (!find) {
+      if (pos < 4) g += `<rect x="${nx + nw - SP*0.13}" y="${cy - SP*3.5}" width="${SP*0.13}" height="${SP*3.35}"/>`.replace('<rect', '<rect fill="currentColor"');
+      else g += `<rect fill="currentColor" x="${nx}" y="${cy + SP*0.15}" width="${SP*0.13}" height="${SP*3.35}"/>`;
+    }
+    body += `<g class="${cls}">${g}</g>`;
+    if (n.result && !find) {
+      const txt = n.result === 'wrong' ? `${n.given}→${nameOf(letterOf(n.step), n.val)}` : nameOf(letterOf(n.step), n.val);
+      under += `<text class="${n.result}" fill="currentColor" x="${nx + nw/2}" y="${Y(-8.6)}" font-size="${SP*(n.result === 'wrong' ? 0.95 : 1.15)}" text-anchor="middle">${txt}</text>`;
+    }
+    if (find) under += `<rect class="tap" data-i="${i}" x="${x + SP*0.2}" y="${Y(14)}" width="${slotW - SP*0.4}" height="${Y(-7) - Y(14)}"/>`;
+    x += slotW;
+  });
+  if (single) x += SP * 1.2;
+  const endX = x + SP * 0.3;
+  let lines = '';
+  for (let p = 0; p <= 8; p += 2) lines += `<line x1="${SP*0.3}" x2="${endX}" y1="${Y(p)}" y2="${Y(p)}" stroke="currentColor" stroke-width="${SP*0.07}"/>`;
+  let bars = barXs.map(bx => `<line x1="${bx}" x2="${bx}" y1="${Y(8)}" y2="${Y(0)}" stroke="currentColor" stroke-width="${SP*0.1}"/>`).join('');
+  if (!single && !find) bars += `<line x1="${endX - SP*0.6}" x2="${endX - SP*0.6}" y1="${Y(8)}" y2="${Y(0)}" stroke="currentColor" stroke-width="${SP*0.1}"/><rect fill="currentColor" x="${endX - SP*0.3}" y="${Y(8)}" width="${SP*0.3}" height="${Y(0) - Y(8)}"/>`;
+  else bars += `<line x1="${endX}" x2="${endX}" y1="${Y(8)}" y2="${Y(0)}" stroke="currentColor" stroke-width="${SP*0.1}"/>`;
+  bars += `<line x1="${SP*0.3}" x2="${SP*0.3}" y1="${Y(8)}" y2="${Y(0)}" stroke="currentColor" stroke-width="${SP*0.1}"/>`;
+  const W = endX + SP * 0.5, H = Y(-10);
+  const svg = $('staff');
+  svg.setAttribute('viewBox', `0 0 ${W.toFixed(1)} ${H.toFixed(1)}`);
+  svg.innerHTML = `<g class="ink">${lines}${bars}</g>${body}${under}`;
+  // keep single-note mode from rendering huge on wide screens
+  svg.style.maxWidth = single ? (S.classMode ? '900px' : '620px') : '';
+}
+
+// ---------- UI ----------
+function $(id){ return document.getElementById(id); }
+function updatePad(){
+  document.querySelectorAll('.key[data-l]').forEach(b => b.classList.toggle('sel', b.dataset.l === sel.L));
+  document.querySelectorAll('.key[data-a]').forEach(b => b.classList.toggle('sel', sel.a !== null && +b.dataset.a === sel.a));
+}
+function pressLetter(L){ if (locked) return; sel.L = L; updatePad(); trySubmit(); }
+function pressAcc(a){ if (locked) return; sel.a = a; updatePad(); trySubmit(); }
+function trySubmit(){ if (sel.L && sel.a !== null) { const {L, a} = sel; sel = {L:null, a:null}; updatePad(); submit(L, a); } }
+
+function buildHome(){
+  const is = $('instSel');
+  is.innerHTML = [...INSTRUMENTS, ROTATE].map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+  is.value = S.inst;
+  is.onchange = () => { S.inst = is.value; save(); };
+  $('modes').innerHTML = MODES.map(m => `<button class="mode" data-m="${m.n}"><span class="num">MODE ${m.n}</span><span class="t">${m.title}</span><span class="d">${m.d}</span></button>`).join('');
+  $('modes').onclick = e => { const b = e.target.closest('.mode'); if (b) startMode(+b.dataset.m); };
+  const chips = () => {
+    $('keyChips').innerHTML = CONCERT_KEYS.map(k => `<button class="chip ${S.keys.includes(k.id) ? 'on' : ''}" data-k="${k.id}">${k.name}</button>`).join('');
+  };
+  chips();
+  $('keyChips').onclick = e => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const k = b.dataset.k;
+    if (S.keys.includes(k)) { if (S.keys.length > 1) S.keys = S.keys.filter(x => x !== k); } else S.keys.push(k);
+    save(); chips();
+  };
+  $('rangeSel').value = S.range;
+  $('rangeSel').onchange = () => { S.range = $('rangeSel').value; save(); };
+  $('classChip').onclick = () => { S.classMode = !S.classMode; save(); applyDisplay(); };
+  $('ver').textContent = `v${VERSION}`;
+}
+function applyDisplay(){
+  document.body.classList.toggle('light', S.theme === 'light');
+  document.body.classList.toggle('classmode', !!S.classMode);
+  $('classChip').classList.toggle('on', !!S.classMode);
+}
+function goHome(){ clearTimeout(timer); G = null; $('play').hidden = true; $('home').hidden = false; $('homeBtn').hidden = true; }
+
+$('letters').innerHTML = 'ABCDEFG'.split('').map(L => `<button class="key" data-l="${L}">${L}</button>`).join('');
+$('accs').innerHTML = [[-1,'♭','flat'],[0,'♮','natural'],[1,'♯','sharp']].map(([a, s, w]) => `<button class="key" data-a="${a}">${s}<small>${w}</small></button>`).join('');
+$('letters').onclick = e => { const b = e.target.closest('.key'); if (b) pressLetter(b.dataset.l); };
+$('accs').onclick = e => { const b = e.target.closest('.key'); if (b) pressAcc(+b.dataset.a); };
+$('contBtn').onclick = advance;
+$('checkBtn').onclick = () => check(false);
+$('revealBtn').onclick = reveal;
+$('homeBtn').onclick = goHome;
+$('themeBtn').onclick = () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; save(); applyDisplay(); };
+$('staff').addEventListener('click', e => { const t = e.target.closest('.tap'); if (t) toggleFind(+t.dataset.i); });
+document.addEventListener('keydown', e => {
+  if (!G || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key;
+  if (k === 'Escape') { goHome(); return; }
+  if (k === 'Enter') {
+    e.preventDefault();
+    if (G.mode === 4) check(false);
+    else if (!$('contBtn').hidden) advance();
+    return;
+  }
+  if (G.mode === 4) return;
+  if (/^[a-gA-G]$/.test(k)) pressLetter(k.toUpperCase());
+  else if (k === '1' || k === '-') pressAcc(-1);
+  else if (k === '2' || k === 'n' || k === 'N' || k === '0') pressAcc(0);
+  else if (k === '3' || k === '#' || k === '+') pressAcc(1);
+  else if ((k === 'r' || k === 'R') && S.classMode) reveal();
+});
+
+buildHome(); applyDisplay();
+// test hook
+window.KS = {get G(){ return G; }, keyMap, evaluate, genLine, genFind, genSingle, letterOf, startMode, submit, S};
+</script>
+</body>
+</html>
