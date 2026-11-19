@@ -605,7 +605,7 @@ function openChooser(n){
   $('chooser').innerHTML = `<div class="choosebox" role="dialog" aria-label="Practice or assessment">
     <div class="sect">Mode ${n}</div><div class="title">${md.title}</div><p class="rule">${md.rule}</p>
     <div class="choices"><button class="btn" onclick="closeChooser();startMode(${n})">🎯 Practice<small>hints and explanations after every answer</small></button>${a}</div>
-    ${TEST_ID ? '' : '<p class="note-small">To turn in an assessment, open the trainer from the Band Ninja Dojo (Arcade tab → GET MY TEST).</p>'}
+    ${TEST_ID ? '' : '<p class="note-small">To turn in an assessment, open the trainer from the Band Ninja Dojo (Home tab → GET MY TEST LINK).</p>'}
     <button class="btn ghost" style="margin-top:.6rem" onclick="closeChooser()">Cancel</button></div>`;
   $('chooser').hidden = false;
 }
@@ -712,7 +712,7 @@ function finishTest(){
   window.scrollTo(0, 0);
   if (A.id) sendResult();
   else setSave('', TEST_ID ? 'Practice copy: this score was <b>not</b> turned in (you already turned in this assessment with this link). Get a new link in the Dojo to turn in another try.'
-                           : 'Practice copy: this score was <b>not</b> turned in. To turn in a score, open the trainer from the Band Ninja Dojo (Arcade tab).');
+                           : 'Practice copy: this score was <b>not</b> turned in. To turn in a score, open the trainer from the Band Ninja Dojo (Home tab).');
 }
 function setSave(cls, html, retry){
   const b = $('saveBox'); if (!b) return;
