@@ -124,6 +124,10 @@ with sync_playwright() as p:
     if SHOTS: pg.screenshot(path=f'{SHOTS}/6-phone-bass.png', full_page=True)
     pg.reload(); pg.wait_for_selector('.mode')
     ok(pg.input_value('#instSel') == 'trombone', 'settings persist after reload')
+    # ?inst= from the Dojo
+    for name, want in [('Alto Saxophone', 'altosax'), ('Bass Clarinet', 'bassclar'), ('Euphonium', 'euph'), ('Percussion', 'mallets'), ('French Horn', 'horn')]:
+        pg.goto(URL + '?inst=' + name.replace(' ', '%20')); pg.wait_for_selector('.mode')
+        ok(pg.input_value('#instSel') == want, f'?inst={name} picks {want}')
     ok(not errors, f'no console errors {errors[:3]}')
     b.close()
 srv.shutdown()

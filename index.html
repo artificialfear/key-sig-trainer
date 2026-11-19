@@ -158,7 +158,7 @@ body.classmode .classonly{display:inline-block}
 <script src="glyphs.js"></script>
 <script>
 'use strict';
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const LETTERS = ['C','D','E','F','G','A','B'];
 const SYM = {'1':'♯','-1':'♭','0':'♮'};
 const WORD = {'1':'sharp','-1':'flat','0':'natural'};
@@ -233,6 +233,31 @@ const DEFAULTS = {inst:'clarinet', keys:CONCERT_KEYS.map(k=>k.id), range:'ledger
 let S = Object.assign({}, DEFAULTS);
 try { Object.assign(S, JSON.parse(localStorage.getItem('ksTrainer.settings') || '{}')); } catch (e) {}
 function save(){ try { localStorage.setItem('ksTrainer.settings', JSON.stringify(S)); } catch (e) {} }
+
+// ?inst=Alto%20Saxophone (from the Band Ninja Dojo) picks the instrument. Same word rules as the Dojo.
+function instFromName(name){
+  const s = String(name || '').toLowerCase();
+  if (!s) return null;
+  if (/bass\s*clar/.test(s)) return 'bassclar';
+  if (s.includes('clar')) return 'clarinet';
+  if (s.includes('tenor')) return 'tenorsax';
+  if (s.includes('bari') && s.includes('sax')) return 'barisax';
+  if (s.includes('sax')) return 'altosax';
+  if (s.includes('flute') || s.includes('piccolo')) return 'flute';
+  if (s.includes('oboe')) return 'oboe';
+  if (s.includes('bassoon')) return 'bassoon';
+  if (s.includes('trumpet') || s.includes('cornet')) return 'trumpet';
+  if (s.includes('horn')) return 'horn';
+  if (s.includes('trombone')) return 'trombone';
+  if (s.includes('euph') || s.includes('baritone')) return /t\.?c\.?|treble/.test(s) ? 'euphtc' : 'euph';
+  if (s.includes('tuba')) return 'tuba';
+  if (/perc|drum|mallet|bell|xylo|marimba|glock/.test(s)) return 'mallets';
+  return null;
+}
+try {
+  const fromLink = instFromName(new URLSearchParams(location.search).get('inst'));
+  if (fromLink) { S.inst = fromLink; save(); }
+} catch (e) {}
 
 // ---------- generation ----------
 function rangeSteps(clef){

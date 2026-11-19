@@ -24,6 +24,9 @@ Student-facing practice tool for Raven Band (Mat Graham, STEM Academy @ Bartlett
 - Mode 1 changes key context every 4 questions; other modes every round.
 - Settings in localStorage key `ksTrainer.settings` (per device).
 
+## Dojo link
+- The Band Ninja Dojo (artificialfear/raven-hub-code, dojo/src/MyProgress.js, KEYSIG_URL) links here from the Arcade panel with `?inst=<Band Ninja instrument>`; `instFromName` maps it (percussion → Mallets). Only the instrument is sent, never a name.
+
 ## Open items / ideas
 - Optional strict-rule setting (no courtesy accidentals) if Mat wants to test the octave rule directly.
 - Fingering answers; mic "play it" mode tie-in with Band Arcade.

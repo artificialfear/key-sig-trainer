@@ -1,5 +1,8 @@
 # Changelog
 
+## v1.1.0 — 2026-11-19
+- Opening from the Band Ninja Dojo picks your instrument automatically (link ends in ?inst=…). You can still change it.
+
 ## v1.0.0 — 2026-11-19
 - First release: Key Signature Trainer for Raven Band.
 - Four modes: Key Signature Notes, Accidentals, Put It Together, Find Them All.
