@@ -81,6 +81,13 @@ summary{cursor:pointer;font-weight:600}
 .staff .miss{color:var(--miss)}
 .staff .shown{color:var(--src)}
 .staff .done{color:#8b8b9c}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:20}
+.overlay[hidden]{display:none!important}
+.choosebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.2rem;max-width:520px;width:100%;text-align:center}
+.choosebox .title{font-size:1.4rem;font-weight:800;margin:.2rem 0}
+.choices{display:grid;gap:.6rem;margin-top:.8rem}
+.choices .btn{font-size:1.15rem;padding:.9rem}
+.choices .btn small{display:block;font-size:.8rem;font-weight:500;opacity:.85;margin-top:.15rem}
 .testbanner{background:color-mix(in srgb,var(--accent) 18%,var(--panel));border:2px solid var(--accent);border-radius:14px;padding:1rem;margin-bottom:1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
 .testbanner .msg{flex:1;min-width:220px}
 .mode.test{border-color:var(--accent)}
@@ -172,11 +179,12 @@ body.classmode .classonly{display:inline-block}
 </main>
 
 <main id="result" hidden></main>
+<div id="chooser" class="overlay" hidden></div>
 
 <script src="glyphs.js"></script>
 <script>
 'use strict';
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const LETTERS = ['C','D','E','F','G','A','B'];
 const SYM = {'1':'♯','-1':'♭','0':'♮'};
 const WORD = {'1':'sharp','-1':'flat','0':'natural'};
@@ -217,7 +225,7 @@ const MODES = [
   {n:2, title:'Accidentals', rule:'Accidentals last until the barline.', d:'Walk through two measures note by note. No key signature, just accidentals.'},
   {n:3, title:'Put It Together', rule:'Key signature + accidentals + barlines.', d:'Your key signature with accidentals, naturals, and barline resets mixed in.'},
   {n:4, title:'Find Them All', rule:'Tap every note the key signature changes.', d:'Find every note that the key signature makes sharp or flat, in every octave.'},
-  {n:5, title:'Key Signature Test', rule:'32 questions. No hints until the end.', d:'All four skills, scored. Start it from the Band Ninja Dojo to turn in your score.'},
+  {n:5, title:'Full Key Signature Test', rule:'32 questions. No hints until the end.', d:'All four skills in one scored assessment. Start it from the Band Ninja Dojo to turn in your score.'},
 ];
 
 function keyMap(f){
@@ -421,7 +429,7 @@ function pickContext(requireKS){
 }
 
 function startMode(n){
-  if (n === 5) { startTest(); return; }
+  if (n === 5) { startTest(5); return; }
   A = null; $('statsBar').hidden = false; $('checkBtn').textContent = 'Check ⏎';
   stats.right = 0; stats.total = 0; stats.streak = 0;
   G = {mode:n, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false};
@@ -436,7 +444,7 @@ function startMode(n){
 function newRound(newCtx){
   clearTimeout(timer); locked = false; sel = {L:null, a:null};
   const m = G.mode;
-  if (newCtx || !G.ctx || m !== 1 || G.qInCtx >= 4) { G.ctx = pickContext(m === 1 || m === 4); G.qInCtx = 0; }
+  if (newCtx || !G.ctx || m !== 1 || G.qInCtx >= (G.perKey || 4)) { G.ctx = pickContext(m === 1 || m === 4); G.qInCtx = 0; }
   G.ks = m !== 2;
   const prevStep = G.notes[0] && G.notes[0].step;
   G.notes = m === 1 ? genSingle(G.ctx, prevStep) : m === 4 ? genFind(G.ctx) : genLine(G.ctx, true && m === 3);
@@ -566,48 +574,74 @@ function check(revealed){
   render(); updateStats();
 }
 
-// ---------- Key Signature Test (v1.2.0) ----------
-// Started from the Band Ninja Dojo: the link carries ?test=<one-time id>. The score is sent back to the Dojo,
-// which knows who the id belongs to. No names ever reach this page.
+// ---------- Assessments (v1.3.0) ----------
+// Every mode has Practice or Assessment (16 questions); Mode 5 = the Full Test (32, all four skills).
+// Started from the Band Ninja Dojo, the link carries ?test=<id>, good for 6 hours, and each assessment can be
+// turned in once with it. Scores go back to the Dojo, which knows who the id belongs to. No names reach this page.
 const DOJO_URL = 'https://script.google.com/macros/s/AKfycby6JxjIONlWjnqebqRPVygdD3vPrAx4Ts5mmtbaD0DU0yX4DfZWJqtQIPhq9j_qpaM/exec';
 let TEST_ID = '';
 try { const t = new URLSearchParams(location.search).get('test') || ''; if (/^[a-f0-9]{20}$/.test(t)) TEST_ID = t; } catch (e) {}
-const TEST_PARTS = [
-  {mode:1, n:8, label:'Key signature notes', short:'Key signature'},
-  {mode:2, label:'Accidentals', short:'Accidentals'},
-  {mode:3, label:'Put it together', short:'Together'},
-  {mode:4, label:'Find them all', short:'Find them all'},
-];
-let A = null;   // the test in progress
+const USED = new Set();   // assessments already turned in with this link (this visit)
+const TEST_PLANS = {
+  1: {kind:'mode1', title:'Key Signature Notes', total:16, parts:[{mode:1, n:16, label:'Key signature notes', short:'Notes'}]},
+  2: {kind:'mode2', title:'Accidentals', total:16, parts:[{mode:2, rounds:2, label:'Accidentals', short:'Accidentals'}]},
+  3: {kind:'mode3', title:'Put It Together', total:16, parts:[{mode:3, rounds:2, label:'Put it together', short:'Together'}]},
+  4: {kind:'mode4', title:'Find Them All', total:16, parts:[{mode:4, rounds:2, label:'Find them all', short:'Find'}]},
+  5: {kind:'full', title:'Full Key Signature Test', total:32, parts:[
+    {mode:1, n:8, label:'Key signature notes', short:'Notes'},
+    {mode:2, rounds:1, label:'Accidentals', short:'Accidentals'},
+    {mode:3, rounds:1, label:'Put it together', short:'Together'},
+    {mode:4, rounds:1, label:'Find them all', short:'Find'}]},
+};
+let A = null;   // the assessment in progress
 
-function startTest(){
-  clearTimeout(timer);
+// Mode cards 1–4 ask first: Practice or Assessment
+function openChooser(n){
+  const md = MODES[n - 1], plan = TEST_PLANS[n], used = USED.has(plan.kind);
+  const a = TEST_ID
+    ? (used ? '<button class="btn ghost" disabled>📝 Assessment: turned in ✓</button>'
+            : `<button class="btn" onclick="startTest(${n})">📝 Assessment<small>16 questions · scored · goes to Mr. Graham</small></button>`)
+    : `<button class="btn ghost" onclick="startTest(${n})">📝 Assessment (practice copy)<small>16 questions · scored, but NOT turned in</small></button>`;
+  $('chooser').innerHTML = `<div class="choosebox" role="dialog" aria-label="Practice or assessment">
+    <div class="sect">Mode ${n}</div><div class="title">${md.title}</div><p class="rule">${md.rule}</p>
+    <div class="choices"><button class="btn" onclick="closeChooser();startMode(${n})">🎯 Practice<small>hints and explanations after every answer</small></button>${a}</div>
+    ${TEST_ID ? '' : '<p class="note-small">To turn in an assessment, open the trainer from the Band Ninja Dojo (Arcade tab → GET MY TEST).</p>'}
+    <button class="btn ghost" style="margin-top:.6rem" onclick="closeChooser()">Cancel</button></div>`;
+  $('chooser').hidden = false;
+}
+function closeChooser(){ $('chooser').hidden = true; $('chooser').innerHTML = ''; }
+
+function startTest(n){
+  closeChooser(); clearTimeout(timer);
+  const plan = TEST_PLANS[n || 5];
   let inst = INSTRUMENTS.find(i => i.id === S.inst);
-  if (!inst) inst = INSTRUMENTS.find(i => i.id === 'clarinet');   // "rotate" isn't allowed for a test
-  A = {id:TEST_ID, inst, part:0, results:[], misses:[], usedF:[], started:Date.now(), saved:false};
+  if (!inst) inst = INSTRUMENTS.find(i => i.id === 'clarinet');   // "rotate" isn't allowed for an assessment
+  const id = TEST_ID && !USED.has(plan.kind) ? TEST_ID : '';
+  A = {id, plan, n:n || 5, inst, part:0, results:[], misses:[], usedF:[], started:Date.now(), saved:false};
   stats.right = 0; stats.total = 0; stats.streak = 0;
   $('home').hidden = true; $('result').hidden = true; $('play').hidden = false; $('homeBtn').hidden = false;
   $('statsBar').hidden = true;
   startPart();
 }
 function startPart(){
-  const p = TEST_PARTS[A.part];
-  G = {mode:p.mode, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false, assess:true, left:p.n || 0};
-  $('pTitle').textContent = '📝 Key Signature Test' + (A.id ? '' : ' (practice, not saved)');
-  $('pRule').textContent = `Part ${A.part + 1} of ${TEST_PARTS.length}: ${p.label}. ${MODES[p.mode - 1].rule}`;
+  const p = A.plan.parts[A.part];
+  G = {mode:p.mode, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false, assess:true,
+       left:p.n || 0, perKey:(p.n || 0) >= 16 ? 8 : 4, rounds:p.rounds || 1};
+  $('pTitle').textContent = '📝 ' + A.plan.title + (A.id ? '' : ' (practice copy, not turned in)');
+  $('pRule').textContent = (A.plan.parts.length > 1 ? `Part ${A.part + 1} of ${A.plan.parts.length}: ${p.label}. ` : '') + MODES[p.mode - 1].rule;
   $('pad').hidden = p.mode === 4; $('checkBtn').hidden = p.mode !== 4; $('checkBtn').textContent = 'Done ⏎';
   newRound(true);
 }
 function testFb(){
-  const q = Math.min(A.results.length + 1, 32);
+  const T = A.plan.total, q = Math.min(A.results.length + 1, T);
   const what = G.mode === 4 ? 'Tap every note the key signature changes, then press Done.' : G.mode === 1 ? 'What note is this?' : 'Name the highlighted note.';
-  setFb('', `<span class="big">Question ${G.mode === 4 ? (A.results.length + 1) + '–' + (A.results.length + 8) : q} of 32</span> ${what}`);
+  setFb('', `<span class="big">${G.mode === 4 ? 'Questions ' + (A.results.length + 1) + '–' + (A.results.length + 8) : 'Question ' + q} of ${T}</span> ${what}`);
 }
 function testCtx(){ const c = G.ctx; return G.mode === 2 ? c.inst.name : `${c.inst.name} · concert ${c.concert.name}`; }
 function testRecord(n, ok, L, a){
   locked = true;
   A.results.push({part:A.part, ok});
-  if (!ok) A.misses.push({part:TEST_PARTS[A.part].label, ctx:testCtx(), given:nameOf(L, a), why:reasonText(n), svg:missSvg()});
+  if (!ok) A.misses.push({part:A.plan.parts[A.part].label, ctx:testCtx(), given:nameOf(L, a), why:reasonText(n), svg:missSvg()});
   n.result = 'done'; render();
   timer = setTimeout(testNext, 220);
 }
@@ -627,8 +661,14 @@ function testNext(){
     nextPart(); return;
   }
   G.cur++;
-  if (G.cur >= G.notes.length) { nextPart(); return; }
+  if (G.cur >= G.notes.length) { roundDone(); return; }
   render(); testFb();
+}
+// a line / set is finished: another one in a new key, or the next part
+function roundDone(){
+  G.rounds--;
+  if (G.rounds > 0) { newRound(true); return; }
+  nextPart();
 }
 function testCheckFind(){
   let right = 0;
@@ -637,19 +677,19 @@ function testCheckFind(){
     const g = keySigGlyphs(G.ctx.clef, G.ctx.f), list = g.map(x => x.letter).join(', ');
     G.checked = true; G.findTarget = new Set(G.notes.map((n, i) => n.val !== 0 ? i : -1).filter(i => i >= 0)); render();
     const svg = $('staff').outerHTML.replace('id="staff"', 'class="staff"');
-    A.misses.push({part:TEST_PARTS[A.part].label, ctx:testCtx(), given:`${right} of ${G.notes.length} notes right`, svg,
+    A.misses.push({part:A.plan.parts[A.part].label, ctx:testCtx(), given:`${right} of ${G.notes.length} notes right`, svg,
       why:`The key signature ${g[0].acc > 0 ? 'sharps' : 'flats'} <b>${list}</b>, so every one of those letters is changed, <b>in every octave</b>. <span style="color:var(--miss)">Orange = missed</span>, <span style="color:var(--wrong)">red = not changed</span>.`});
   }
-  nextPart();
+  roundDone();
 }
 function nextPart(){
   A.part++;
-  if (A.part >= TEST_PARTS.length) { finishTest(); return; }
+  if (A.part >= A.plan.parts.length) { finishTest(); return; }
   startPart();
 }
 function testSummary(){
   const score = A.results.filter(r => r.ok).length, total = A.results.length;
-  const parts = TEST_PARTS.map((p, i) => { const rs = A.results.filter(r => r.part === i); return {label:p.label, short:p.short, right:rs.filter(r => r.ok).length, of:rs.length}; });
+  const parts = A.plan.parts.map((p, i) => { const rs = A.results.filter(r => r.part === i); return {label:p.label, short:p.short, right:rs.filter(r => r.ok).length, of:rs.length}; });
   return {score, total, pct:Math.round(score / total * 100), parts, text:parts.map(p => `${p.short} ${p.right}/${p.of}`).join('; ')};
 }
 function finishTest(){
@@ -658,19 +698,21 @@ function finishTest(){
   A.summary = r;
   G = null;   // the test screen is done; keys and taps do nothing now
   $('play').hidden = true; $('result').hidden = false;
-  let h = `<div class="topbar"><div><div class="title">📝 Key Signature Test: results</div><div class="rule">${esc(A.inst.name)}</div></div></div>
-    <div class="row" style="align-items:center;gap:1.4rem"><div class="res-score">${r.pct}%</div><div><b>${r.score} of ${r.total}</b> right<br><span class="rule">${r.pct >= 90 ? 'Excellent!' : r.pct >= 80 ? 'Nice work.' : r.pct >= 70 ? 'Getting there. Review the misses below.' : 'Keep practicing the modes, then try again.'}</span></div></div>
-    <div id="saveBox"></div>
-    <div class="res-parts">${r.parts.map(p => `<div class="res-part"><div class="rule">${esc(p.label)}</div><b>${p.right}/${p.of}</b></div>`).join('')}</div>`;
+  let h = `<div class="topbar"><div><div class="title">📝 ${esc(A.plan.title)}: results</div><div class="rule">${esc(A.inst.name)}</div></div></div>
+    <div class="row" style="align-items:center;gap:1.4rem"><div class="res-score">${r.pct}%</div><div><b>${r.score} of ${r.total}</b> right<br><span class="rule">${r.pct >= 90 ? 'Excellent!' : r.pct >= 80 ? 'Nice work.' : r.pct >= 70 ? 'Getting there. Review the misses below.' : 'Keep practicing this mode, then try again.'}</span></div></div>
+    <div id="saveBox"></div>` +
+    (r.parts.length > 1 ? `<div class="res-parts">${r.parts.map(p => `<div class="res-part"><div class="rule">${esc(p.label)}</div><b>${p.right}/${p.of}</b></div>`).join('')}</div>` : '');
   if (A.misses.length) {
-    h += `<div class="sect">Review what you missed (${A.misses.length})</div>` + A.misses.map(m => `<div class="miss"><div class="meta">${esc(m.part)} · ${esc(m.ctx)}</div>
+    h += `<div class="sect" style="margin-top:1rem">Review what you missed (${A.misses.length})</div>` + A.misses.map(m => `<div class="miss"><div class="meta">${esc(m.part)} · ${esc(m.ctx)}</div>
       <div class="paper" style="margin:.4rem 0;padding:.3rem">${m.svg}</div>
       <div><span style="color:var(--muted)">You said ${esc(m.given)}. </span>${m.why}</div></div>`).join('');
   } else h += '<p class="big">Perfect score! 🎉</p>';
-  h += `<div class="actions" style="margin:1.2rem 0"><button class="btn ghost" onclick="goHome()">Back to modes</button>${A.id ? '' : '<button class="btn" onclick="startMode(5)">Take it again</button>'}</div>`;
+  h += `<div class="actions" style="margin:1.2rem 0"><button class="btn ghost" onclick="goHome()">Back to modes</button>${A.id ? '' : `<button class="btn" onclick="startTest(${A.n})">Take it again</button>`}</div>`;
   $('result').innerHTML = h;
   window.scrollTo(0, 0);
-  if (A.id) sendResult(); else setSave('', 'Practice test: this score was <b>not</b> turned in. To turn in a score, start the test from the Band Ninja Dojo (Arcade tab).');
+  if (A.id) sendResult();
+  else setSave('', TEST_ID ? 'Practice copy: this score was <b>not</b> turned in (you already turned in this assessment with this link). Get a new link in the Dojo to turn in another try.'
+                           : 'Practice copy: this score was <b>not</b> turned in. To turn in a score, open the trainer from the Band Ninja Dojo (Arcade tab).');
 }
 function setSave(cls, html, retry){
   const b = $('saveBox'); if (!b) return;
@@ -679,25 +721,32 @@ function setSave(cls, html, retry){
 }
 function sendResult(){
   if (!A || !A.id || !A.summary) return;
-  const r = A.summary;
+  const r = A.summary, kind = A.plan.kind;
   setSave('', 'Saving your score to Band Ninja…');
-  const body = {action:'keysigResult', t:A.id, score:r.score, total:r.total, parts:r.text, inst:A.inst.name, ver:VERSION};
+  const body = {action:'keysigResult', t:A.id, kind, score:r.score, total:r.total, parts:r.text, inst:A.inst.name, ver:VERSION};
   fetch(DOJO_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)})
     .then(x => x.json())
     .then(res => {
       if (res && res.success) {
-        A.saved = true; TEST_ID = '';
-        try { history.replaceState(null, '', location.pathname + '?inst=' + encodeURIComponent(A.inst.name)); } catch (e) {}
-        setSave('ok', '✅ <b>Turned in.</b> Your score is saved in Band Ninja. Take a new test from the Dojo any time.');
-      } else setSave('bad', '⚠ ' + esc((res && res.message) || 'Band Ninja did not take the score.'), !(res && res.final));
+        A.saved = true; USED.add(kind); buildBanner();
+        setSave('ok', '✅ <b>Turned in.</b> Your score is saved in Band Ninja. Your other assessments are still open with this link.');
+      } else {
+        if (res && res.used) { USED.add(kind); buildBanner(); }
+        setSave('bad', '⚠ ' + esc((res && res.message) || 'Band Ninja did not take the score.'), !(res && res.final));
+      }
     })
     .catch(() => setSave('bad', '⚠ Couldn\'t reach Band Ninja. Check your internet, then tap Try again. (Don\'t close this page.)', true));
 }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function buildBanner(){
   const b = $('testBanner'); if (!b) return;
-  b.innerHTML = TEST_ID ? `<div class="testbanner"><div class="msg"><b>📝 Your Band Ninja Key Signature Test is ready.</b><br>32 questions on ${esc((INSTRUMENTS.find(i => i.id === S.inst) || {name:'your instrument'}).name)}. No hints until the end, and your score goes to Mr. Graham.</div><button class="btn" onclick="startMode(5)">Start my test</button></div>` : '';
-  document.querySelectorAll('.mode[data-m="5"]').forEach(m => m.classList.add('test'));
+  if (!TEST_ID) { b.innerHTML = ''; return; }
+  const left = Object.values(TEST_PLANS).filter(p => !USED.has(p.kind)).length;
+  const inst = esc((INSTRUMENTS.find(i => i.id === S.inst) || {name:'your instrument'}).name);
+  b.innerHTML = `<div class="testbanner"><div class="msg"><b>📝 Your Band Ninja assessment link is ready</b> (${inst}).<br>` +
+    (left ? `Pick a mode below and choose <b>Assessment</b>, or take the Full Test. Each one can be turned in once with this link (${left} of 5 left).`
+          : 'You turned in all 5 assessments with this link. Get a new link in the Dojo to try again.') + `</div>` +
+    (USED.has('full') ? '' : '<button class="btn" onclick="startTest(5)">Full Test (32)</button>') + `</div>`;
 }
 
 // ---------- rendering ----------
@@ -803,7 +852,7 @@ function buildHome(){
   is.value = S.inst;
   is.onchange = () => { S.inst = is.value; save(); };
   $('modes').innerHTML = MODES.map(m => `<button class="mode" data-m="${m.n}"><span class="num">MODE ${m.n}</span><span class="t">${m.title}</span><span class="d">${m.d}</span></button>`).join('');
-  $('modes').onclick = e => { const b = e.target.closest('.mode'); if (b) startMode(+b.dataset.m); };
+  $('modes').onclick = e => { const b = e.target.closest('.mode'); if (!b) return; const n = +b.dataset.m; if (n === 5) startTest(5); else openChooser(n); };
   const chips = () => {
     $('keyChips').innerHTML = CONCERT_KEYS.map(k => `<button class="chip ${S.keys.includes(k.id) ? 'on' : ''}" data-k="${k.id}">${k.name}</button>`).join('');
   };
@@ -837,6 +886,7 @@ $('homeBtn').onclick = goHome;
 $('themeBtn').onclick = () => { S.theme = S.theme === 'light' ? 'dark' : 'light'; save(); applyDisplay(); };
 $('staff').addEventListener('click', e => { const t = e.target.closest('.tap'); if (t) toggleFind(+t.dataset.i); });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('chooser').hidden) { closeChooser(); return; }
   if (!G || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key;
   if (k === 'Escape') { goHome(); return; }

@@ -65,7 +65,7 @@ with sync_playwright() as p:
     if SHOTS: os.makedirs(SHOTS, exist_ok=True); pg.screenshot(path=f'{SHOTS}/0-home.png')
 
     # Mode 1: answer right, then wrong
-    pg.click('.mode[data-m="1"]')
+    pg.click('.mode[data-m="1"]'); pg.click('#chooser >> text=Practice')
     for k in range(6):
         n = pg.evaluate("() => { const n = KS.G.notes[0]; return [KS.letterOf(n.step), n.val]; }")
         pg.click(f'.key[data-l="{n[0]}"]'); pg.click(f'.key[data-a="{n[1]}"]')
@@ -81,7 +81,7 @@ with sync_playwright() as p:
 
     # Modes 2/3: walk a line, one deliberate miss
     for mode in (2, 3):
-        pg.click('#homeBtn'); pg.click(f'.mode[data-m="{mode}"]')
+        pg.click('#homeBtn'); pg.click(f'.mode[data-m="{mode}"]'); pg.click('#chooser >> text=Practice')
         for i in range(8):
             n = pg.evaluate("() => { const G = KS.G, n = G.notes[G.cur]; return [KS.letterOf(n.step), n.val, n.reason]; }")
             if i == 3:
@@ -96,7 +96,7 @@ with sync_playwright() as p:
         pg.keyboard.press('Enter')
 
     # Mode 4
-    pg.click('#homeBtn'); pg.click('.mode[data-m="4"]')
+    pg.click('#homeBtn'); pg.click('.mode[data-m="4"]'); pg.click('#chooser >> text=Practice')
     tg = pg.evaluate("() => KS.G.notes.map((n,i) => n.val !== 0 ? i : -1).filter(i => i >= 0)")
     for i in tg: pg.click(f'.tap[data-i="{i}"]')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/4-find-picked.png')
@@ -110,17 +110,17 @@ with sync_playwright() as p:
     pg.set_viewport_size({'width': 1920, 'height': 1080})
     pg.click('#homeBtn'); pg.click('#settings summary'); pg.click('#classChip')
     pg.select_option('#instSel', 'rotate')
-    pg.click('.mode[data-m="3"]')
+    pg.click('.mode[data-m="3"]'); pg.click('#chooser >> text=Practice')
     pg.click('#revealBtn')
     ok(pg.is_visible('#contBtn'), 'class display: Reveal shows answer')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/5-class-reveal.png')
-    pg.click('#homeBtn'); pg.click('.mode[data-m="1"]')
+    pg.click('#homeBtn'); pg.click('.mode[data-m="1"]'); pg.click('#chooser >> text=Practice')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/5-class-mode1.png')
 
     # Bass clef + phone width
     pg.click('#homeBtn'); pg.click('#classChip'); pg.select_option('#instSel', 'trombone')
     pg.set_viewport_size({'width': 390, 'height': 844})
-    pg.click('.mode[data-m="3"]')
+    pg.click('.mode[data-m="3"]'); pg.click('#chooser >> text=Practice')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/6-phone-bass.png', full_page=True)
     pg.reload(); pg.wait_for_selector('.mode')
     ok(pg.input_value('#instSel') == 'trombone', 'settings persist after reload')
@@ -159,17 +159,40 @@ with sync_playwright() as p:
     ok(pg.locator('.miss').count() == 2, 'two misses listed for review')
     ok(not sent, 'practice test sends nothing')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/8-test-result.png', full_page=True)
+    # per-mode assessment, practice copy (no Dojo id)
+    pg.click('#homeBtn'); pg.click('.mode[data-m="2"]')
+    ok(pg.is_visible('#chooser') and 'Practice' in pg.inner_text('#chooser') and 'NOT turned in' in pg.inner_text('#chooser'), 'mode card asks Practice or Assessment (practice copy without the Dojo)')
+    if SHOTS: pg.screenshot(path=f'{SHOTS}/10-chooser.png')
+    pg.click('#chooser >> text=Practice'); pg.wait_for_timeout(100)
+    ok(pg.is_visible('#statsBar') and 'Accidentals' in pg.inner_text('#pTitle'), 'Practice opens the normal mode')
+    pg.click('#homeBtn'); pg.click('.mode[data-m="3"]'); pg.click('#chooser >> text=Assessment')
+    ok('Question 1 of 16' in pg.inner_text('#fbMsg'), 'mode assessment = 16 questions')
+    take_test(False)
+    ok('16 of 16' in pg.inner_text('#result') and '100%' in pg.inner_text('#result'), 'Put It Together assessment: 16 of 16')
+    ok(not sent, 'practice copy sends nothing')
+    # with a Dojo id: each assessment once
     tid = 'a1b2c3d4e5f6a7b8c9d0'
     pg.goto(URL + '?inst=Alto%20Saxophone&test=' + tid); pg.wait_for_selector('.mode')
-    ok('Key Signature Test is ready' in pg.inner_text('#testBanner') and 'Alto Sax' in pg.inner_text('#testBanner'), 'test id from the Dojo shows the Start banner')
+    ok('assessment link is ready' in pg.inner_text('#testBanner') and 'Alto Sax' in pg.inner_text('#testBanner') and '5 of 5 left' in pg.inner_text('#testBanner'), 'Dojo link: banner, 5 of 5 left')
     if SHOTS: pg.screenshot(path=f'{SHOTS}/9-test-banner.png')
-    pg.click('#testBanner .btn')
+    pg.click('.mode[data-m="1"]'); pg.click('#chooser >> text=goes to Mr. Graham')
     take_test(False)
     pg.wait_for_selector('#saveBox.ok', timeout=5000)
     import json as _j
     body = _j.loads(sent[-1]) if sent else {}
-    ok(body.get('t') == tid and body.get('score') == 32 and body.get('total') == 32 and body.get('action') == 'keysigResult', f'score sent to the Dojo with the test id ({body})')
-    ok('test=' not in pg.url, 'test id removed from the address after turning in')
+    ok(body.get('t') == tid and body.get('kind') == 'mode1' and body.get('score') == 16 and body.get('total') == 16, f'mode 1 assessment sent with kind + id ({body})')
+    if SHOTS: pg.screenshot(path=f'{SHOTS}/11-mode1-turned-in.png', full_page=True)
+    pg.click('text=Back to modes')
+    ok('4 of 5 left' in pg.inner_text('#testBanner'), 'banner: 4 of 5 left')
+    pg.click('.mode[data-m="1"]')
+    ok('turned in ✓' in pg.inner_text('#chooser'), 'mode 1 assessment shows turned in')
+    pg.click('#chooser >> text=Cancel')
+    pg.click('#testBanner .btn')
+    take_test(False)
+    pg.wait_for_selector('#saveBox.ok', timeout=5000)
+    body = _j.loads(sent[-1])
+    ok(body.get('kind') == 'full' and body.get('total') == 32, 'full test sent as kind full (32)')
+    ok('test=' in pg.url, 'the link keeps its id for the other assessments')
     ok(pg.locator('.mode').count() == 5, 'home shows 5 modes')
     ok(not errors, f'no console errors {errors[:3]}')
     b.close()

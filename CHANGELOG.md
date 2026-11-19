@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.0 — 2026-11-19
+- Every mode now asks: Practice or Assessment. Each mode has a 16-question scored assessment; Mode 5 is the 32-question Full Test.
+- One Band Ninja Dojo link covers all five assessments; each can be turned in once with it (the banner counts how many are left).
+
 ## v1.2.0 — 2026-11-19
 - New Mode 5: Key Signature Test. 32 questions across all four skills, no hints until the end, then a review of every miss.
 - Started from the Band Ninja Dojo (Arcade tab), the score is turned in to Band Ninja. Opened on its own it is a practice test and nothing is saved.
