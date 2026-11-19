@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.0 — 2026-11-19
+- New Mode 5: Key Signature Test. 32 questions across all four skills, no hints until the end, then a review of every miss.
+- Started from the Band Ninja Dojo (Arcade tab), the score is turned in to Band Ninja. Opened on its own it is a practice test and nothing is saved.
+
 ## v1.1.0 — 2026-11-19
 - Opening from the Band Ninja Dojo picks your instrument automatically (link ends in ?inst=…). You can still change it.
 

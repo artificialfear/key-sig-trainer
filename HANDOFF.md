@@ -27,6 +27,10 @@ Student-facing practice tool for Raven Band (Mat Graham, STEM Academy @ Bartlett
 ## Dojo link
 - The Band Ninja Dojo (artificialfear/raven-hub-code, dojo/src/MyProgress.js, KEYSIG_URL) links here from the Arcade panel with `?inst=<Band Ninja instrument>`; `instFromName` maps it (percussion → Mallets). Only the instrument is sent, never a name.
 
+## Key Signature Test (v1.2.0)
+- Mode 5 / startTest(): TEST_PARTS (mode 1 ×8 in two keys, mode 2 line, mode 3 line, mode 4 set) = 32 items, range locked to ledger1, one instrument.
+- `?test=<20 hex>` from the Dojo → banner + score POSTed (text/plain JSON) to DOJO_URL (the Dojo /exec doPost, raven-hub-code dojo/src/MyProgress.js kstSave_). Success strips the id from the address. No id = practice, nothing sent.
+
 ## Open items / ideas
 - Optional strict-rule setting (no courtesy accidentals) if Mat wants to test the octave rule directly.
 - Fingering answers; mic "play it" mode tie-in with Band Arcade.

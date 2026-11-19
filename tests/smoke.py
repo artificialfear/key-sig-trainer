@@ -128,6 +128,49 @@ with sync_playwright() as p:
     for name, want in [('Alto Saxophone', 'altosax'), ('Bass Clarinet', 'bassclar'), ('Euphonium', 'euph'), ('Percussion', 'mallets'), ('French Horn', 'horn')]:
         pg.goto(URL + '?inst=' + name.replace(' ', '%20')); pg.wait_for_selector('.mode')
         ok(pg.input_value('#instSel') == want, f'?inst={name} picks {want}')
+    # Key Signature Test: practice (no id) and turned in (with id, Dojo faked)
+    sent = []
+    def dojo(route):
+        sent.append(route.request.post_data)
+        route.fulfill(status=200, content_type='application/json', body='{"success":true,"pct":0}')
+    pg.route('https://script.google.com/**', dojo)
+    def take_test(miss_first):
+        k = 0
+        while True:
+            st = pg.evaluate("() => KS.A && KS.G && KS.G.assess ? {m: KS.G.mode, part: KS.A.part} : null")
+            if not st: break
+            if st['m'] == 4:
+                tg = pg.evaluate("() => KS.G.notes.map((n,i) => n.val !== 0 ? i : -1).filter(i => i >= 0)")
+                for i in tg: pg.click(f'.tap[data-i="{i}"]')
+                pg.click('#checkBtn'); pg.wait_for_timeout(100); continue
+            n = pg.evaluate("() => { const G = KS.G, n = G.notes[G.cur]; return [KS.letterOf(n.step), n.val]; }")
+            a = n[1]
+            if miss_first and k < 2: a = 1 if n[1] != 1 else -1
+            pg.click(f'.key[data-l="{n[0]}"]'); pg.click(f'.key[data-a="{a}"]'); pg.wait_for_timeout(260); k += 1
+    pg.set_viewport_size({'width': 1366, 'height': 768})
+    pg.goto(URL + '?inst=Trumpet'); pg.wait_for_selector('.mode')
+    ok(pg.inner_html('#testBanner') == '', 'no test banner without a Dojo test id')
+    pg.click('.mode[data-m="5"]')
+    if SHOTS: pg.screenshot(path=f'{SHOTS}/7-test-q1.png')
+    ok(pg.is_hidden('#statsBar') and 'Question 1 of 32' in pg.inner_text('#fbMsg'), 'test: no streak bar, question counter shown')
+    take_test(True)
+    ok(pg.is_visible('#result') and '94%' in pg.inner_text('#result') and '30 of 32' in pg.inner_text('#result'), 'practice test: 30 of 32 = 94%')
+    ok('not</b> turned in' in pg.inner_html('#saveBox') or 'not turned in' in pg.inner_text('#saveBox'), 'practice test says it was not turned in')
+    ok(pg.locator('.miss').count() == 2, 'two misses listed for review')
+    ok(not sent, 'practice test sends nothing')
+    if SHOTS: pg.screenshot(path=f'{SHOTS}/8-test-result.png', full_page=True)
+    tid = 'a1b2c3d4e5f6a7b8c9d0'
+    pg.goto(URL + '?inst=Alto%20Saxophone&test=' + tid); pg.wait_for_selector('.mode')
+    ok('Key Signature Test is ready' in pg.inner_text('#testBanner') and 'Alto Sax' in pg.inner_text('#testBanner'), 'test id from the Dojo shows the Start banner')
+    if SHOTS: pg.screenshot(path=f'{SHOTS}/9-test-banner.png')
+    pg.click('#testBanner .btn')
+    take_test(False)
+    pg.wait_for_selector('#saveBox.ok', timeout=5000)
+    import json as _j
+    body = _j.loads(sent[-1]) if sent else {}
+    ok(body.get('t') == tid and body.get('score') == 32 and body.get('total') == 32 and body.get('action') == 'keysigResult', f'score sent to the Dojo with the test id ({body})')
+    ok('test=' not in pg.url, 'test id removed from the address after turning in')
+    ok(pg.locator('.mode').count() == 5, 'home shows 5 modes')
     ok(not errors, f'no console errors {errors[:3]}')
     b.close()
 srv.shutdown()

@@ -80,6 +80,21 @@ summary{cursor:pointer;font-weight:600}
 .staff .src{color:var(--src)}
 .staff .miss{color:var(--miss)}
 .staff .shown{color:var(--src)}
+.staff .done{color:#8b8b9c}
+.testbanner{background:color-mix(in srgb,var(--accent) 18%,var(--panel));border:2px solid var(--accent);border-radius:14px;padding:1rem;margin-bottom:1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap}
+.testbanner .msg{flex:1;min-width:220px}
+.mode.test{border-color:var(--accent)}
+.res-score{font-size:3rem;font-weight:800;line-height:1}
+.res-parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem;margin:1rem 0}
+.res-part{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:.6rem .8rem}
+.res-part b{font-size:1.3rem}
+.miss{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--wrong);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0}
+.miss .meta{color:var(--muted);font-size:.85rem}
+.miss .paper svg{display:block;height:130px!important;max-height:none;width:100%!important;max-width:100%!important;margin:0 auto}
+.miss .big{font-weight:800;margin-right:.3rem}
+.save{padding:.7rem 1rem;border-radius:12px;background:var(--panel);border:1px solid var(--line);margin:1rem 0;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
+.save.ok{border-color:var(--right)}
+.save.bad{border-color:var(--wrong)}
 .staff text{font-family:system-ui,sans-serif;font-weight:700}
 .tap{fill:transparent;cursor:pointer}
 
@@ -105,6 +120,7 @@ body.classmode .classonly{display:inline-block}
 </header>
 
 <main id="home">
+  <div id="testBanner"></div>
   <div class="field">
     <label for="instSel">Your instrument</label>
     <select id="instSel"></select>
@@ -139,7 +155,7 @@ body.classmode .classonly{display:inline-block}
 <main id="play" hidden>
   <div class="topbar">
     <div><div class="title" id="pTitle"></div><div class="rule" id="pRule"></div></div>
-    <div class="stats"><span>Correct <b id="sRight">0</b>/<b id="sTotal">0</b></span><span>Streak <b id="sStreak">0</b></span><span>Best <b id="sBest">0</b></span></div>
+    <div class="stats" id="statsBar"><span>Correct <b id="sRight">0</b>/<b id="sTotal">0</b></span><span>Streak <b id="sStreak">0</b></span><span>Best <b id="sBest">0</b></span></div>
   </div>
   <div class="ctx" id="ctx"></div>
   <div class="paper"><svg class="staff" id="staff" xmlns="http://www.w3.org/2000/svg"></svg></div>
@@ -155,10 +171,12 @@ body.classmode .classonly{display:inline-block}
   </div>
 </main>
 
+<main id="result" hidden></main>
+
 <script src="glyphs.js"></script>
 <script>
 'use strict';
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const LETTERS = ['C','D','E','F','G','A','B'];
 const SYM = {'1':'♯','-1':'♭','0':'♮'};
 const WORD = {'1':'sharp','-1':'flat','0':'natural'};
@@ -199,6 +217,7 @@ const MODES = [
   {n:2, title:'Accidentals', rule:'Accidentals last until the barline.', d:'Walk through two measures note by note. No key signature, just accidentals.'},
   {n:3, title:'Put It Together', rule:'Key signature + accidentals + barlines.', d:'Your key signature with accidentals, naturals, and barline resets mixed in.'},
   {n:4, title:'Find Them All', rule:'Tap every note the key signature changes.', d:'Find every note that the key signature makes sharp or flat, in every octave.'},
+  {n:5, title:'Key Signature Test', rule:'32 questions. No hints until the end.', d:'All four skills, scored. Start it from the Band Ninja Dojo to turn in your score.'},
 ];
 
 function keyMap(f){
@@ -261,7 +280,7 @@ try {
 
 // ---------- generation ----------
 function rangeSteps(clef){
-  const [lo, hi] = RANGES[S.range] || RANGES.ledger1, out = [];
+  const [lo, hi] = (A ? RANGES.ledger1 : RANGES[S.range]) || RANGES.ledger1, out = [];
   for (let p = lo; p <= hi; p++) out.push(BASE[clef] + p);
   return out;
 }
@@ -384,7 +403,7 @@ let G = null, sel = {L:null, a:null}, locked = false, timer = null;
 const stats = {right:0, total:0, streak:0};
 
 function pickContext(requireKS){
-  const inst = S.inst === 'rotate' ? pick(INSTRUMENTS) : (INSTRUMENTS.find(i => i.id === S.inst) || INSTRUMENTS[3]);
+  const inst = A ? A.inst : S.inst === 'rotate' ? pick(INSTRUMENTS) : (INSTRUMENTS.find(i => i.id === S.inst) || INSTRUMENTS[3]);
   let keys = CONCERT_KEYS.filter(k => S.keys.includes(k.id));
   if (!keys.length) keys = CONCERT_KEYS;
   let opts = keys.map(k => ({concert:k, f:k.f + inst.t}));
@@ -395,11 +414,15 @@ function pickContext(requireKS){
     opts = nz;
   }
   if (G && G.ctx && opts.length > 1 && S.inst !== 'rotate') { const diff = opts.filter(o => o.f !== G.ctx.f); if (diff.length) opts = diff; }
+  if (A) { const fresh = opts.filter(o => !A.usedF.includes(o.f)); if (fresh.length) opts = fresh; }
   const o = pick(opts);
+  if (A) A.usedF.push(o.f);
   return {inst, clef:inst.clef, f:o.f, concert:o.concert};
 }
 
 function startMode(n){
+  if (n === 5) { startTest(); return; }
+  A = null; $('statsBar').hidden = false; $('checkBtn').textContent = 'Check ⏎';
   stats.right = 0; stats.total = 0; stats.streak = 0;
   G = {mode:n, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false};
   const md = MODES[n-1];
@@ -421,7 +444,8 @@ function newRound(newCtx){
   G.cur = 0; G.hlLetter = null; G.picked = new Set(); G.checked = false; G.lineDone = false;
   const c = G.ctx;
   $('ctx').textContent = m === 2 ? `${c.inst.name}` : `${c.inst.name} · concert ${c.concert.name}`;
-  setFb('', m === 4 ? 'Tap the notes, then press Check.' : m === 1 ? 'What note is this?' : 'Name the highlighted note.');
+  if (G.assess) testFb();
+  else setFb('', m === 4 ? 'Tap the notes, then press Check.' : m === 1 ? 'What note is this?' : 'Name the highlighted note.');
   $('contBtn').hidden = true;
   updatePad(); render(); updateStats();
 }
@@ -465,6 +489,7 @@ function submit(L, a){
   if (locked || !G || G.mode === 4) return;
   const n = G.notes[G.cur]; if (!n) return;
   const ok = letterOf(n.step) === L && n.val === a;
+  if (G.assess) { testRecord(n, ok, L, a); return; }
   stats.total++;
   n.result = ok ? 'right' : 'wrong'; n.given = nameOf(L, a);
   if (ok) {
@@ -489,7 +514,7 @@ function showReason(n, prefix, cls){
 }
 
 function reveal(){
-  if (!G) return;
+  if (!G || G.assess) return;
   if (G.mode === 4) { if (!G.checked) check(true); return; }
   if (locked) return;
   const n = G.notes[G.cur]; if (!n) return;
@@ -521,6 +546,7 @@ function toggleFind(i){
   render();
 }
 function check(revealed){
+  if (G.assess) { testCheckFind(); return; }
   if (G.checked) { advance(); return; }
   G.checked = true;
   const target = new Set(G.notes.map((n, i) => n.val !== 0 ? i : -1).filter(i => i >= 0));
@@ -538,6 +564,140 @@ function check(revealed){
   setFb(revealed ? '' : ok ? 'right' : 'wrong', (ok ? `<span class="big">✓ All found!</span> ` : revealed ? '' : `<span class="big">Not quite.</span> `) + why + (ok || revealed ? '' : ' <span style="color:var(--miss)">Orange = missed</span>, <span style="color:var(--wrong)">red = not changed</span>.'));
   $('checkBtn').textContent = 'Next ⏎';
   render(); updateStats();
+}
+
+// ---------- Key Signature Test (v1.2.0) ----------
+// Started from the Band Ninja Dojo: the link carries ?test=<one-time id>. The score is sent back to the Dojo,
+// which knows who the id belongs to. No names ever reach this page.
+const DOJO_URL = 'https://script.google.com/macros/s/AKfycby6JxjIONlWjnqebqRPVygdD3vPrAx4Ts5mmtbaD0DU0yX4DfZWJqtQIPhq9j_qpaM/exec';
+let TEST_ID = '';
+try { const t = new URLSearchParams(location.search).get('test') || ''; if (/^[a-f0-9]{20}$/.test(t)) TEST_ID = t; } catch (e) {}
+const TEST_PARTS = [
+  {mode:1, n:8, label:'Key signature notes', short:'Key signature'},
+  {mode:2, label:'Accidentals', short:'Accidentals'},
+  {mode:3, label:'Put it together', short:'Together'},
+  {mode:4, label:'Find them all', short:'Find them all'},
+];
+let A = null;   // the test in progress
+
+function startTest(){
+  clearTimeout(timer);
+  let inst = INSTRUMENTS.find(i => i.id === S.inst);
+  if (!inst) inst = INSTRUMENTS.find(i => i.id === 'clarinet');   // "rotate" isn't allowed for a test
+  A = {id:TEST_ID, inst, part:0, results:[], misses:[], usedF:[], started:Date.now(), saved:false};
+  stats.right = 0; stats.total = 0; stats.streak = 0;
+  $('home').hidden = true; $('result').hidden = true; $('play').hidden = false; $('homeBtn').hidden = false;
+  $('statsBar').hidden = true;
+  startPart();
+}
+function startPart(){
+  const p = TEST_PARTS[A.part];
+  G = {mode:p.mode, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false, assess:true, left:p.n || 0};
+  $('pTitle').textContent = '📝 Key Signature Test' + (A.id ? '' : ' (practice, not saved)');
+  $('pRule').textContent = `Part ${A.part + 1} of ${TEST_PARTS.length}: ${p.label}. ${MODES[p.mode - 1].rule}`;
+  $('pad').hidden = p.mode === 4; $('checkBtn').hidden = p.mode !== 4; $('checkBtn').textContent = 'Done ⏎';
+  newRound(true);
+}
+function testFb(){
+  const q = Math.min(A.results.length + 1, 32);
+  const what = G.mode === 4 ? 'Tap every note the key signature changes, then press Done.' : G.mode === 1 ? 'What note is this?' : 'Name the highlighted note.';
+  setFb('', `<span class="big">Question ${G.mode === 4 ? (A.results.length + 1) + '–' + (A.results.length + 8) : q} of 32</span> ${what}`);
+}
+function testCtx(){ const c = G.ctx; return G.mode === 2 ? c.inst.name : `${c.inst.name} · concert ${c.concert.name}`; }
+function testRecord(n, ok, L, a){
+  locked = true;
+  A.results.push({part:A.part, ok});
+  if (!ok) A.misses.push({part:TEST_PARTS[A.part].label, ctx:testCtx(), given:nameOf(L, a), why:reasonText(n), svg:missSvg()});
+  n.result = 'done'; render();
+  timer = setTimeout(testNext, 220);
+}
+// a small copy of the staff for the review screen, with the missed note marked
+function missSvg(){
+  const keep = G.cur, prev = G.notes.map(x => x.result);
+  G.notes.forEach((x, i) => { x.result = i === keep ? 'wrong' : (i < keep ? 'done' : null); });
+  G.cur = -1; render(); const h = $('staff').outerHTML.replace('id="staff"', 'class="staff"');
+  G.cur = keep; G.notes.forEach((x, i) => { x.result = prev[i]; });
+  return h;
+}
+function testNext(){
+  locked = false;
+  if (G.mode === 1) {
+    G.left--;
+    if (G.left > 0) { G.qInCtx++; newRound(false); return; }
+    nextPart(); return;
+  }
+  G.cur++;
+  if (G.cur >= G.notes.length) { nextPart(); return; }
+  render(); testFb();
+}
+function testCheckFind(){
+  let right = 0;
+  G.notes.forEach((n, i) => { const ok = (n.val !== 0) === G.picked.has(i); A.results.push({part:A.part, ok}); if (ok) right++; });
+  if (right < G.notes.length) {
+    const g = keySigGlyphs(G.ctx.clef, G.ctx.f), list = g.map(x => x.letter).join(', ');
+    G.checked = true; G.findTarget = new Set(G.notes.map((n, i) => n.val !== 0 ? i : -1).filter(i => i >= 0)); render();
+    const svg = $('staff').outerHTML.replace('id="staff"', 'class="staff"');
+    A.misses.push({part:TEST_PARTS[A.part].label, ctx:testCtx(), given:`${right} of ${G.notes.length} notes right`, svg,
+      why:`The key signature ${g[0].acc > 0 ? 'sharps' : 'flats'} <b>${list}</b>, so every one of those letters is changed, <b>in every octave</b>. <span style="color:var(--miss)">Orange = missed</span>, <span style="color:var(--wrong)">red = not changed</span>.`});
+  }
+  nextPart();
+}
+function nextPart(){
+  A.part++;
+  if (A.part >= TEST_PARTS.length) { finishTest(); return; }
+  startPart();
+}
+function testSummary(){
+  const score = A.results.filter(r => r.ok).length, total = A.results.length;
+  const parts = TEST_PARTS.map((p, i) => { const rs = A.results.filter(r => r.part === i); return {label:p.label, short:p.short, right:rs.filter(r => r.ok).length, of:rs.length}; });
+  return {score, total, pct:Math.round(score / total * 100), parts, text:parts.map(p => `${p.short} ${p.right}/${p.of}`).join('; ')};
+}
+function finishTest(){
+  clearTimeout(timer);
+  const r = testSummary();
+  A.summary = r;
+  G = null;   // the test screen is done; keys and taps do nothing now
+  $('play').hidden = true; $('result').hidden = false;
+  let h = `<div class="topbar"><div><div class="title">📝 Key Signature Test: results</div><div class="rule">${esc(A.inst.name)}</div></div></div>
+    <div class="row" style="align-items:center;gap:1.4rem"><div class="res-score">${r.pct}%</div><div><b>${r.score} of ${r.total}</b> right<br><span class="rule">${r.pct >= 90 ? 'Excellent!' : r.pct >= 80 ? 'Nice work.' : r.pct >= 70 ? 'Getting there. Review the misses below.' : 'Keep practicing the modes, then try again.'}</span></div></div>
+    <div id="saveBox"></div>
+    <div class="res-parts">${r.parts.map(p => `<div class="res-part"><div class="rule">${esc(p.label)}</div><b>${p.right}/${p.of}</b></div>`).join('')}</div>`;
+  if (A.misses.length) {
+    h += `<div class="sect">Review what you missed (${A.misses.length})</div>` + A.misses.map(m => `<div class="miss"><div class="meta">${esc(m.part)} · ${esc(m.ctx)}</div>
+      <div class="paper" style="margin:.4rem 0;padding:.3rem">${m.svg}</div>
+      <div><span style="color:var(--muted)">You said ${esc(m.given)}. </span>${m.why}</div></div>`).join('');
+  } else h += '<p class="big">Perfect score! 🎉</p>';
+  h += `<div class="actions" style="margin:1.2rem 0"><button class="btn ghost" onclick="goHome()">Back to modes</button>${A.id ? '' : '<button class="btn" onclick="startMode(5)">Take it again</button>'}</div>`;
+  $('result').innerHTML = h;
+  window.scrollTo(0, 0);
+  if (A.id) sendResult(); else setSave('', 'Practice test: this score was <b>not</b> turned in. To turn in a score, start the test from the Band Ninja Dojo (Arcade tab).');
+}
+function setSave(cls, html, retry){
+  const b = $('saveBox'); if (!b) return;
+  b.className = 'save ' + cls;
+  b.innerHTML = `<div style="flex:1">${html}</div>` + (retry ? '<button class="btn" onclick="sendResult()">Try again</button>' : '');
+}
+function sendResult(){
+  if (!A || !A.id || !A.summary) return;
+  const r = A.summary;
+  setSave('', 'Saving your score to Band Ninja…');
+  const body = {action:'keysigResult', t:A.id, score:r.score, total:r.total, parts:r.text, inst:A.inst.name, ver:VERSION};
+  fetch(DOJO_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)})
+    .then(x => x.json())
+    .then(res => {
+      if (res && res.success) {
+        A.saved = true; TEST_ID = '';
+        try { history.replaceState(null, '', location.pathname + '?inst=' + encodeURIComponent(A.inst.name)); } catch (e) {}
+        setSave('ok', '✅ <b>Turned in.</b> Your score is saved in Band Ninja. Take a new test from the Dojo any time.');
+      } else setSave('bad', '⚠ ' + esc((res && res.message) || 'Band Ninja did not take the score.'), !(res && res.final));
+    })
+    .catch(() => setSave('bad', '⚠ Couldn\'t reach Band Ninja. Check your internet, then tap Try again. (Don\'t close this page.)', true));
+}
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function buildBanner(){
+  const b = $('testBanner'); if (!b) return;
+  b.innerHTML = TEST_ID ? `<div class="testbanner"><div class="msg"><b>📝 Your Band Ninja Key Signature Test is ready.</b><br>32 questions on ${esc((INSTRUMENTS.find(i => i.id === S.inst) || {name:'your instrument'}).name)}. No hints until the end, and your score goes to Mr. Graham.</div><button class="btn" onclick="startMode(5)">Start my test</button></div>` : '';
+  document.querySelectorAll('.mode[data-m="5"]').forEach(m => m.classList.add('test'));
 }
 
 // ---------- rendering ----------
@@ -604,7 +764,7 @@ function render(){
       else g += `<rect fill="currentColor" x="${nx}" y="${cy + SP*0.15}" width="${SP*0.13}" height="${SP*3.35}"/>`;
     }
     body += `<g class="${cls}">${g}</g>`;
-    if (n.result && !find) {
+    if (n.result && !find && !G.assess) {
       const txt = n.result === 'wrong' ? `${n.given}→${nameOf(letterOf(n.step), n.val)}` : nameOf(letterOf(n.step), n.val);
       under += `<text class="${n.result}" fill="currentColor" x="${nx + nw/2}" y="${Y(-8.6)}" font-size="${SP*(n.result === 'wrong' ? 0.95 : 1.15)}" text-anchor="middle">${txt}</text>`;
     }
@@ -664,7 +824,7 @@ function applyDisplay(){
   document.body.classList.toggle('classmode', !!S.classMode);
   $('classChip').classList.toggle('on', !!S.classMode);
 }
-function goHome(){ clearTimeout(timer); G = null; $('play').hidden = true; $('home').hidden = false; $('homeBtn').hidden = true; }
+function goHome(){ clearTimeout(timer); G = null; A = null; $('play').hidden = true; $('result').hidden = true; $('home').hidden = false; $('homeBtn').hidden = true; buildBanner(); }
 
 $('letters').innerHTML = 'ABCDEFG'.split('').map(L => `<button class="key" data-l="${L}">${L}</button>`).join('');
 $('accs').innerHTML = [[-1,'♭','flat'],[0,'♮','natural'],[1,'♯','sharp']].map(([a, s, w]) => `<button class="key" data-a="${a}">${s}<small>${w}</small></button>`).join('');
@@ -694,9 +854,9 @@ document.addEventListener('keydown', e => {
   else if ((k === 'r' || k === 'R') && S.classMode) reveal();
 });
 
-buildHome(); applyDisplay();
+buildHome(); applyDisplay(); buildBanner();
 // test hook
-window.KS = {get G(){ return G; }, keyMap, evaluate, genLine, genFind, genSingle, letterOf, startMode, submit, S};
+window.KS = {get G(){ return G; }, get A(){ return A; }, startTest, testSummary, keyMap, evaluate, genLine, genFind, genSingle, letterOf, startMode, submit, S};
 </script>
 </body>
 </html>
