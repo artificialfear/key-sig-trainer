@@ -31,6 +31,10 @@ Student-facing practice tool for Raven Band (Mat Graham, STEM Academy @ Bartlett
 - Mode cards 1–4 open openChooser(n): Practice (startMode) or Assessment (startTest(n)). TEST_PLANS: mode1 = 16 notes in 2 keys (perKey 8), mode2/3 = 2 lines, mode4 = 2 sets (16 each); 5 = Full Test (8 notes + 1 line + 1 line + 1 set = 32). Range locked to ledger1, one instrument.
 - `?test=<20 hex>` from the Dojo → banner + score POSTed (text/plain JSON with kind mode1..mode4/full) to DOJO_URL (the Dojo /exec doPost, raven-hub-code dojo/src/MyProgress.js kstSave_). The id stays in the address; USED (this visit) marks kinds turned in. No id, or a kind already turned in = practice copy, nothing sent.
 
+## v1.4.0: sound + skills
+- playNote(n): Web Audio (triangle + 2 sine partials, ~1 s), sounding pitch = written MIDI + SOUND_SHIFT[inst.id] (Bb -2, bass clar/tenor/euph TC -14, Eb alto -9, bari -21, horn -7), raised by octaves to ≥ G2 for small speakers. Practice only (right, wrong = the right note, Reveal); S.sound (🔊 #soundBtn, hidden in assessments).
+- Skills: skillKey(n) → ks-octave / ks-same / plain / acc / natural / carry / reset / courtesy; Find Them All → find-miss (changed note not tapped) / find-extra (unchanged note tapped). A.skills = {key: [missed, attempted]}; sent as `skills` "key m/n; …" with the score; weakSpots() = top 2 by misses on the results screen.
+
 ## Open items / ideas
 - Optional strict-rule setting (no courtesy accidentals) if Mat wants to test the octave rule directly.
 - Fingering answers; mic "play it" mode tie-in with Band Arcade.

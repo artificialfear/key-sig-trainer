@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.4.0 — 2026-11-19
+- Hear the note: after every practice answer the trainer plays the right note at the pitch your instrument sounds (🔊 button turns it off; remembered on the device). Assessments stay silent.
+- Assessments now track which rule each miss broke (key signature in another octave, accidentals lasting to the barline, natural signs, barline resets, reminder accidentals, Find Them All) and send those counts to Band Ninja. The results screen shows the student's top two things to work on.
+
 ## v1.3.0 — 2026-11-19
 - Every mode now asks: Practice or Assessment. Each mode has a 16-question scored assessment; Mode 5 is the 32-question Full Test.
 - One Band Ninja Dojo link covers all five assessments; each can be turned in once with it (the banner counts how many are left).

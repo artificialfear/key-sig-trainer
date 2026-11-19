@@ -98,6 +98,7 @@ summary{cursor:pointer;font-weight:600}
 .miss{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--wrong);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0}
 .miss .meta{color:var(--muted);font-size:.85rem}
 .miss .paper svg{display:block;height:130px!important;max-height:none;width:100%!important;max-width:100%!important;margin:0 auto}
+.weak{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--miss);border-radius:10px;padding:.6rem .8rem;margin:.6rem 0}
 .miss .big{font-weight:800;margin-right:.3rem}
 .save{padding:.7rem 1rem;border-radius:12px;background:var(--panel);border:1px solid var(--line);margin:1rem 0;display:flex;gap:.8rem;align-items:center;flex-wrap:wrap}
 .save.ok{border-color:var(--right)}
@@ -162,6 +163,7 @@ body.classmode .classonly{display:inline-block}
 <main id="play" hidden>
   <div class="topbar">
     <div><div class="title" id="pTitle"></div><div class="rule" id="pRule"></div></div>
+    <button class="iconbtn" id="soundBtn" onclick="toggleSound()" title="Play each note after you answer">🔊 Sound on</button>
     <div class="stats" id="statsBar"><span>Correct <b id="sRight">0</b>/<b id="sTotal">0</b></span><span>Streak <b id="sStreak">0</b></span><span>Best <b id="sBest">0</b></span></div>
   </div>
   <div class="ctx" id="ctx"></div>
@@ -184,7 +186,7 @@ body.classmode .classonly{display:inline-block}
 <script src="glyphs.js"></script>
 <script>
 'use strict';
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const LETTERS = ['C','D','E','F','G','A','B'];
 const SYM = {'1':'♯','-1':'♭','0':'♮'};
 const WORD = {'1':'sharp','-1':'flat','0':'natural'};
@@ -212,6 +214,9 @@ const INSTRUMENTS = [
   {id:'tuba', name:'Tuba', clef:'bass', t:0},
   {id:'mallets', name:'Mallets / Bells', clef:'treble', t:0},
 ];
+// Semitones from written to sounding pitch, for "hear the note" (v1.4.0)
+const SOUND_SHIFT = {flute:0, oboe:0, bassoon:0, clarinet:-2, bassclar:-14, altosax:-9, tenorsax:-14, barisax:-21, trumpet:-2,
+  horn:-7, trombone:0, euph:0, euphtc:-14, tuba:0, mallets:0};
 const ROTATE = {id:'rotate', name:'Rotate through all instruments (class)'};
 const CONCERT_KEYS = [
   {id:'Bb', name:'B♭', f:-2}, {id:'Eb', name:'E♭', f:-3}, {id:'F', name:'F', f:-1},
@@ -256,7 +261,7 @@ function describePos(pos){
 }
 
 // ---------- settings (per device) ----------
-const DEFAULTS = {inst:'clarinet', keys:CONCERT_KEYS.map(k=>k.id), range:'ledger1', theme:'dark', classMode:false, best:{}};
+const DEFAULTS = {inst:'clarinet', keys:CONCERT_KEYS.map(k=>k.id), range:'ledger1', theme:'dark', classMode:false, sound:true, best:{}};
 let S = Object.assign({}, DEFAULTS);
 try { Object.assign(S, JSON.parse(localStorage.getItem('ksTrainer.settings') || '{}')); } catch (e) {}
 function save(){ try { localStorage.setItem('ksTrainer.settings', JSON.stringify(S)); } catch (e) {} }
@@ -430,7 +435,7 @@ function pickContext(requireKS){
 
 function startMode(n){
   if (n === 5) { startTest(5); return; }
-  A = null; $('statsBar').hidden = false; $('checkBtn').textContent = 'Check ⏎';
+  A = null; $('statsBar').hidden = false; $('soundBtn').hidden = false; $('checkBtn').textContent = 'Check ⏎';
   stats.right = 0; stats.total = 0; stats.streak = 0;
   G = {mode:n, ctx:null, notes:[], cur:0, qInCtx:0, picked:new Set(), checked:false};
   const md = MODES[n-1];
@@ -504,11 +509,12 @@ function submit(L, a){
     stats.right++; stats.streak++;
     S.best = S.best || {}; if (stats.streak > (S.best[G.mode] || 0)) { S.best[G.mode] = stats.streak; save(); }
     setFb('right', `<span class="big">✓ ${nameOf(L, a)}</span>${n.reason === 'keysig' && G.mode === 1 ? ' Nice. The key signature counts in every octave.' : ''}`);
-    locked = true; render(); updateStats();
+    locked = true; render(); updateStats(); playNote(n);
     timer = setTimeout(advance, G.mode === 1 ? 750 : 550);
   } else {
     stats.streak = 0;
     showReason(n, `You said ${nameOf(L, a)}. `, 'wrong');
+    playNote(n);   // the right note, so they hear what it should be
   }
 }
 
@@ -528,6 +534,7 @@ function reveal(){
   const n = G.notes[G.cur]; if (!n) return;
   n.result = 'shown';
   showReason(n, '', '');
+  playNote(n);
 }
 
 function advance(){
@@ -574,6 +581,66 @@ function check(revealed){
   render(); updateStats();
 }
 
+// ---------- Hear the note (v1.4.0) ----------
+// After each practice answer the trainer plays the right note at the pitch the student's instrument would sound.
+// Very low notes (tuba, bari sax) are raised an octave at a time to G2 so small Chromebook speakers can play them.
+let AUDIO = null;
+function audioCtx(){
+  try { if (!AUDIO) AUDIO = new (window.AudioContext || window.webkitAudioContext)(); if (AUDIO.state === 'suspended') AUDIO.resume(); } catch (e) { AUDIO = null; }
+  return AUDIO;
+}
+function noteMidi(step, val, inst){
+  const oct = Math.floor(step / 7), semis = [0, 2, 4, 5, 7, 9, 11][((step % 7) + 7) % 7];
+  return 12 * (oct + 1) + semis + val + (SOUND_SHIFT[inst && inst.id] || 0);
+}
+function playNote(n){
+  if (S.sound === false || !G || G.assess || !G.ctx) return;
+  const ac = audioCtx(); if (!ac) return;
+  let midi = noteMidi(n.step, n.val, G.ctx.inst);
+  while (midi < 43) midi += 12;   // G2
+  const f = 440 * Math.pow(2, (midi - 69) / 12), t = ac.currentTime + 0.02;
+  const out = ac.createGain(); out.connect(ac.destination);
+  out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.32, t + 0.03);
+  out.gain.setValueAtTime(0.32, t + 0.45); out.gain.exponentialRampToValueAtTime(0.0001, t + 0.95);
+  [[1, 'triangle', 1], [2, 'sine', 0.25], [3, 'sine', 0.08]].forEach(([mult, type, amp]) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = f * mult; g.gain.value = amp;
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + 1);
+  });
+  window.__lastPlayed = {midi, freq:f};   // for the tests
+}
+function setSoundBtn(){ const b = $('soundBtn'); if (b) { b.textContent = S.sound === false ? '🔇 Sound off' : '🔊 Sound on'; b.setAttribute('aria-pressed', String(S.sound !== false)); } }
+function toggleSound(){ S.sound = S.sound === false; save(); setSoundBtn(); if (S.sound) audioCtx(); }
+
+// ---------- Skill tracking (v1.4.0) ----------
+// Every question belongs to one rule; assessments count right/attempted per rule and send it to Band Ninja,
+// so the Hub can show what each class misses most. Students see their own top two at the end.
+const SKILLS = {
+  'ks-octave':  'the key signature in a different octave',
+  'ks-same':    'key signature notes',
+  'plain':      'notes with no sharp or flat',
+  'acc':        'sharps and flats written on the note',
+  'natural':    'natural signs',
+  'carry':      'accidentals lasting until the barline',
+  'reset':      'the barline cancelling an accidental',
+  'courtesy':   'reminder accidentals in ( )',
+  'find-miss':  'spotting every note the key signature changes',
+  'find-extra': 'tapping notes the key signature doesn\'t change',
+};
+function skillKey(n){
+  if (n.reason === 'keysig') {
+    const g = keySigGlyphs(G.ctx.clef, G.ctx.f).find(x => x.letter === letterOf(n.step));
+    return g && g.step === n.step ? 'ks-same' : 'ks-octave';
+  }
+  if (n.reason === 'explicit') return n.val === 0 ? 'natural' : 'acc';
+  return SKILLS[n.reason] ? n.reason : 'plain';
+}
+function skillCount(key, ok){ const s = A.skills[key] = A.skills[key] || [0, 0]; s[1]++; if (!ok) s[0]++; }
+function skillText(){ return Object.keys(A.skills).filter(k => SKILLS[k]).map(k => `${k} ${A.skills[k][0]}/${A.skills[k][1]}`).join('; '); }
+function weakSpots(){
+  return Object.keys(A.skills).filter(k => A.skills[k][0] > 0).sort((a, b) => A.skills[b][0] - A.skills[a][0] || A.skills[b][0] / A.skills[b][1] - A.skills[a][0] / A.skills[a][1]).slice(0, 2);
+}
+
 // ---------- Assessments (v1.3.0) ----------
 // Every mode has Practice or Assessment (16 questions); Mode 5 = the Full Test (32, all four skills).
 // Started from the Band Ninja Dojo, the link carries ?test=<id>, good for 6 hours, and each assessment can be
@@ -617,10 +684,10 @@ function startTest(n){
   let inst = INSTRUMENTS.find(i => i.id === S.inst);
   if (!inst) inst = INSTRUMENTS.find(i => i.id === 'clarinet');   // "rotate" isn't allowed for an assessment
   const id = TEST_ID && !USED.has(plan.kind) ? TEST_ID : '';
-  A = {id, plan, n:n || 5, inst, part:0, results:[], misses:[], usedF:[], started:Date.now(), saved:false};
+  A = {id, plan, n:n || 5, inst, part:0, results:[], misses:[], skills:{}, usedF:[], started:Date.now(), saved:false};
   stats.right = 0; stats.total = 0; stats.streak = 0;
   $('home').hidden = true; $('result').hidden = true; $('play').hidden = false; $('homeBtn').hidden = false;
-  $('statsBar').hidden = true;
+  $('statsBar').hidden = true; $('soundBtn').hidden = true;   // no sound during assessments
   startPart();
 }
 function startPart(){
@@ -641,6 +708,7 @@ function testCtx(){ const c = G.ctx; return G.mode === 2 ? c.inst.name : `${c.in
 function testRecord(n, ok, L, a){
   locked = true;
   A.results.push({part:A.part, ok});
+  skillCount(skillKey(n), ok);
   if (!ok) A.misses.push({part:A.plan.parts[A.part].label, ctx:testCtx(), given:nameOf(L, a), why:reasonText(n), svg:missSvg()});
   n.result = 'done'; render();
   timer = setTimeout(testNext, 220);
@@ -672,7 +740,11 @@ function roundDone(){
 }
 function testCheckFind(){
   let right = 0;
-  G.notes.forEach((n, i) => { const ok = (n.val !== 0) === G.picked.has(i); A.results.push({part:A.part, ok}); if (ok) right++; });
+  G.notes.forEach((n, i) => {
+    const ok = (n.val !== 0) === G.picked.has(i);
+    A.results.push({part:A.part, ok}); if (ok) right++;
+    skillCount(n.val !== 0 ? 'find-miss' : 'find-extra', ok);
+  });
   if (right < G.notes.length) {
     const g = keySigGlyphs(G.ctx.clef, G.ctx.f), list = g.map(x => x.letter).join(', ');
     G.checked = true; G.findTarget = new Set(G.notes.map((n, i) => n.val !== 0 ? i : -1).filter(i => i >= 0)); render();
@@ -701,6 +773,7 @@ function finishTest(){
   let h = `<div class="topbar"><div><div class="title">📝 ${esc(A.plan.title)}: results</div><div class="rule">${esc(A.inst.name)}</div></div></div>
     <div class="row" style="align-items:center;gap:1.4rem"><div class="res-score">${r.pct}%</div><div><b>${r.score} of ${r.total}</b> right<br><span class="rule">${r.pct >= 90 ? 'Excellent!' : r.pct >= 80 ? 'Nice work.' : r.pct >= 70 ? 'Getting there. Review the misses below.' : 'Keep practicing this mode, then try again.'}</span></div></div>
     <div id="saveBox"></div>` +
+    (weakSpots().length ? `<div class="weak">🎯 <b>Work on:</b> ${weakSpots().map(k => `${esc(SKILLS[k])} <span class="rule">(missed ${A.skills[k][0]} of ${A.skills[k][1]})</span>`).join(' · ')}</div>` : '') +
     (r.parts.length > 1 ? `<div class="res-parts">${r.parts.map(p => `<div class="res-part"><div class="rule">${esc(p.label)}</div><b>${p.right}/${p.of}</b></div>`).join('')}</div>` : '');
   if (A.misses.length) {
     h += `<div class="sect" style="margin-top:1rem">Review what you missed (${A.misses.length})</div>` + A.misses.map(m => `<div class="miss"><div class="meta">${esc(m.part)} · ${esc(m.ctx)}</div>
@@ -723,7 +796,7 @@ function sendResult(){
   if (!A || !A.id || !A.summary) return;
   const r = A.summary, kind = A.plan.kind;
   setSave('', 'Saving your score to Band Ninja…');
-  const body = {action:'keysigResult', t:A.id, kind, score:r.score, total:r.total, parts:r.text, inst:A.inst.name, ver:VERSION};
+  const body = {action:'keysigResult', t:A.id, kind, score:r.score, total:r.total, parts:r.text, skills:skillText(), inst:A.inst.name, ver:VERSION};
   fetch(DOJO_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)})
     .then(x => x.json())
     .then(res => {
@@ -904,9 +977,9 @@ document.addEventListener('keydown', e => {
   else if ((k === 'r' || k === 'R') && S.classMode) reveal();
 });
 
-buildHome(); applyDisplay(); buildBanner();
+buildHome(); applyDisplay(); buildBanner(); setSoundBtn();
 // test hook
-window.KS = {get G(){ return G; }, get A(){ return A; }, startTest, testSummary, keyMap, evaluate, genLine, genFind, genSingle, letterOf, startMode, submit, S};
+window.KS = {get G(){ return G; }, get A(){ return A; }, noteMidi, skillText:() => skillText(), startTest, testSummary, keyMap, evaluate, genLine, genFind, genSingle, letterOf, startMode, submit, S};
 </script>
 </body>
 </html>
